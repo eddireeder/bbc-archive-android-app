@@ -7,8 +7,11 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
+import android.media.MediaPlayer
+import android.view.View
+import android.widget.TextView
 
-class MainActivity : AppCompatActivity(), SensorEventListener {
+class MainActivity : AppCompatActivity(), SensorEventListener, MediaPlayer.OnPreparedListener {
 
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
@@ -60,5 +63,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Show new data
         rotationVector = event.values
         rotationVectorAccuracy = event.accuracy
+
+        // Display the data for now
+        rotationVector?.also { vector ->
+            val textView = findViewById<TextView>(R.id.textView).apply {
+                text = vector.joinToString()
+            }
+        }
+    }
+
+    fun playSound(view: View) {
+        val testSoundURL = "http://bbcsfx.acropolis.org.uk/assets/07076051.wav"
+        val mediaPlayer: MediaPlayer? = MediaPlayer().apply {
+            setDataSource(testSoundURL)
+            setOnPreparedListener(this@MainActivity)
+            prepareAsync()
+        }
+    }
+
+    /** Called when media player is ready */
+    override fun onPrepared(mediaPlayer: MediaPlayer) {
+        mediaPlayer.start()
     }
 }
