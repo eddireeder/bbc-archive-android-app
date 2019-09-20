@@ -7,19 +7,16 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
-import android.media.MediaPlayer
 import android.widget.TextView
 import kotlin.math.PI
-import kotlin.math.acos
-import kotlin.math.sqrt
 
-class MainActivity : AppCompatActivity(), SensorEventListener, MediaPlayer.OnPreparedListener {
+class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private lateinit var rotationVectorSensor: Sensor
-    private val targetVector: FloatArray = floatArrayOf(1.0f, 0.0f, 0.0f)
-    private lateinit var mediaPlayer: MediaPlayer
+    private lateinit var testSound: Sound
     private val primaryAngle: Float = 5.0f
+    private val secondaryAngle: Float = 30.0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,9 +37,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener, MediaPlayer.OnPre
             }
         }
 
-        // Initialise media player
-        mediaPlayer = MediaPlayer()
-        playSound()
+        // Initialise test sound
+        testSound = Sound(
+            "http://bbcsfx.acropolis.org.uk/assets/07076051.wav",
+            floatArrayOf(1.0f, 0.0f, 0.0f)
+        )
     }
 
     override fun onResume() {
@@ -92,47 +91,28 @@ class MainActivity : AppCompatActivity(), SensorEventListener, MediaPlayer.OnPre
             text = aimVector.joinToString()
         }
 
-        // Calculate the angle between the aim direction and the target direction
-        val angleInRadians: Float = getAngleBetweenVectors(aimVector, targetVector)
+        // Get the angle between the device aim and the sound
+        val angleFromSound = testSound.getAngleFrom(aimVector)
 
-        // Convert to degrees
-        val angleInDegrees: Float = angleInRadians*(180.0f/PI.toFloat())
+        // Convert the angle to degrees
+        val angleFromSoundDegrees: Float = angleFromSound*(180.0f/ PI.toFloat())
 
         // Display the angle
         val textView3 = findViewById<TextView>(R.id.textView3).apply {
-            text = angleInDegrees.toString()
+            text = angleFromSoundDegrees.toString()
         }
 
-        if (angleInDegrees < primaryAngle) {
-            // Ensure volume is 100%
-            mediaPlayer.setVolume(1.0f, 1.0f)
+        // Execute sound logic
+        if (angleFromSoundDegrees <= secondaryAngle) {
+            if (testSound.isMediaPlayerNull()) {
+                testSound.startStreaming()
+            }
+            // Set sound volume relative to distance from sound
+            testSound.setVolume(1.0f - (angleFromSoundDegrees/secondaryAngle))
         } else {
-            mediaPlayer.setVolume(0.0f, 0.0f)
+            if (!testSound.isMediaPlayerNull()) {
+                testSound.stopPlaying()
+            }
         }
-    }
-
-    fun getAngleBetweenVectors(v1: FloatArray, v2: FloatArray): Float {
-        // Calculate the dot product between the 2 vectors
-        val dot: Float = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
-
-        // Calculate the product of the magnitudes of the 2 vectors
-        val absProduct: Float = sqrt(v1[0]*v1[0] + v1[1]*v1[1] + v1[2]*v1[2])*sqrt(v2[0]*v2[0] + v2[1]*v2[1] + v2[2]*v2[2])
-
-        // Angle between the vectors
-        return acos(dot/absProduct)
-    }
-
-    fun playSound() {
-        val testSoundURL = "http://bbcsfx.acropolis.org.uk/assets/07076051.wav"
-        mediaPlayer.apply {
-            setDataSource(testSoundURL)
-            setOnPreparedListener(this@MainActivity)
-            prepareAsync()
-        }
-    }
-
-    /** Called when media player is ready */
-    override fun onPrepared(mediaPlayer: MediaPlayer) {
-        mediaPlayer.start()
     }
 }
