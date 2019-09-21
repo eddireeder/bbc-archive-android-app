@@ -17,6 +17,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var testSound: Sound
     private val primaryAngle: Float = 5.0f
     private val secondaryAngle: Float = 30.0f
+    private lateinit var staticEffect: StaticEffect
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +43,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             "http://bbcsfx.acropolis.org.uk/assets/07076051.wav",
             floatArrayOf(1.0f, 0.0f, 0.0f)
         )
+
+        // Initialise static background sound and start playing
+        staticEffect = StaticEffect(this)
     }
 
     override fun onResume() {
@@ -102,17 +106,33 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             text = angleFromSoundDegrees.toString()
         }
 
+        // Ensure static effect is playing
+        if (staticEffect.isMediaPlayerNull()) {
+            staticEffect.startPlaying()
+        }
+
         // Execute sound logic
         if (angleFromSoundDegrees <= secondaryAngle) {
+
+            // Ensure sound is streaming
             if (testSound.isMediaPlayerNull()) {
                 testSound.startStreaming()
             }
+
             // Set sound volume relative to distance from sound
             testSound.setVolume(1.0f - (angleFromSoundDegrees/secondaryAngle))
+
+            // Set static effect volume
+            staticEffect.setVolume(0.2f + 0.8f*(angleFromSoundDegrees/secondaryAngle))
         } else {
+
+            // Ensure sound has stopped playing
             if (!testSound.isMediaPlayerNull()) {
                 testSound.stopPlaying()
             }
+
+            // Ensure static effect is full volume
+            staticEffect.setVolume(1.0f)
         }
     }
 }
