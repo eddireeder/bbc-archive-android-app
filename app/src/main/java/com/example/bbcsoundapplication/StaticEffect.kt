@@ -7,7 +7,9 @@ class StaticEffect (val context: Context) {
 
     private var mediaPlayer: MediaPlayer? = null
 
-    /** Initialise media player and start playing */
+    /**
+     *  Initialise media player and start playing
+     */
     fun startPlaying() {
         // Initialise media player and start it
         mediaPlayer = MediaPlayer.create(context, R.raw.static_effect)
@@ -17,19 +19,25 @@ class StaticEffect (val context: Context) {
         }
     }
 
-    /** Set media player volume */
+    /**
+     * Set media player volume
+     */
     fun setVolume(volume: Float) {
         // Set the volume for left and right sound output
         mediaPlayer?.setVolume(volume, volume)
     }
 
-    /** Stop playing and release media player */
+    /**
+     * Stop playing and release media player
+     */
     fun stopPlaying() {
         // Release and nullify media player
         mediaPlayer?.release()
         mediaPlayer = null
     }
 
-    /** Return whether media player exists */
+    /**
+     * Return whether media player exists
+     */
     fun isMediaPlayerNull(): Boolean = (mediaPlayer == null)
 }

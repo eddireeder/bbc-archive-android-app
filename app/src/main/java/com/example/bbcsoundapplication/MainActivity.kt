@@ -7,6 +7,8 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
+import android.os.CountDownTimer
+import android.util.Log
 import android.widget.TextView
 import kotlin.math.PI
 
@@ -14,11 +16,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private lateinit var rotationVectorSensor: Sensor
-    private lateinit var testSound: Sound
+
+    private lateinit var soundTargets: Array<SoundTarget>
     private val primaryAngle: Float = 5.0f
     private val secondaryAngle: Float = 30.0f
     private lateinit var staticEffect: StaticEffect
 
+    private var targettedSound: SoundTarget? = null
+    private var isFocussed: Boolean = false
+    private lateinit var focusTimer: CountDownTimer
+
+    /**
+     * Called on creation of Activity
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -38,16 +48,31 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         }
 
-        // Initialise test sound
-        testSound = Sound(
-            "http://bbcsfx.acropolis.org.uk/assets/07076051.wav",
-            floatArrayOf(1.0f, 0.0f, 0.0f)
+        // Initialise sound target array for testing
+        soundTargets = arrayOf<SoundTarget>(
+            SoundTarget("http://bbcsfx.acropolis.org.uk/assets/07076051.wav", floatArrayOf(1.0f, 0.0f, 0.0f)),
+            SoundTarget("http://bbcsfx.acropolis.org.uk/assets/07070175.wav", floatArrayOf(1.0f, 0.5f, 0.0f))
         )
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
+        staticEffect.startPlaying()
+
+        // Initialise the focus timer
+        focusTimer = object: CountDownTimer(5000, 5000) {
+            override fun onTick(millisUntilFinished: Long) {}
+            override fun onFinish() {
+                isFocussed = true
+                val textView = findViewById<TextView>(R.id.textView3).apply {
+                    text = "Focussed"
+                }
+            }
+        }
     }
 
+    /**
+     * Called on resuming of activity
+     */
     override fun onResume() {
         super.onResume()
 
@@ -57,6 +82,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
+    /**
+     * Called on pausing of activity
+     */
     override fun onPause() {
         super.onPause()
 
@@ -64,6 +92,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         sensorManager.unregisterListener(this)
     }
 
+    /**
+     * Called on change of sensor accuracy
+     */
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
         // Show accuracy
         var accuracyString: String = when (accuracy) {
@@ -79,6 +110,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
+    /**
+     * Called on change of sensor data
+     */
     override fun onSensorChanged(event: SensorEvent) {
         // Retrieve value
         val rotationVector: FloatArray = event.values
@@ -95,44 +129,69 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             text = aimVector.joinToString()
         }
 
-        // Get the angle between the device aim and the sound
-        val angleFromSound = testSound.getAngleFrom(aimVector)
+        // Store the minimum angle from a sound
+        var minAngleFromSound: Float = secondaryAngle
 
-        // Convert the angle to degrees
-        val angleFromSoundDegrees: Float = angleFromSound*(180.0f/ PI.toFloat())
+        for (soundTarget in soundTargets) {
 
-        // Display the angle
-        val textView3 = findViewById<TextView>(R.id.textView3).apply {
-            text = angleFromSoundDegrees.toString()
+            // Get the angle between the device aim and the sound in degrees
+            val angleFromSound = soundTarget.getAngleFrom(aimVector)
+            val angleFromSoundDegrees: Float = angleFromSound*(180.0f/ PI.toFloat())
+
+            // Replace if new minimum
+            if (angleFromSoundDegrees < minAngleFromSound) minAngleFromSound = angleFromSoundDegrees
+
+            // If the aim is inside the secondary zone
+            if (angleFromSoundDegrees <= secondaryAngle) {
+
+                // Ensure sound is streaming and set the volume relative to distance away
+                if (soundTarget.isMediaPlayerNull()) soundTarget.startStreaming()
+                soundTarget.setVolume(1.0f - (angleFromSoundDegrees/secondaryAngle))
+
+                // If the aim is inside the primary zone
+                if (angleFromSoundDegrees <= primaryAngle) {
+                    // Start focussing if not already
+                    if (targettedSound == null) {
+                        startFocussing(soundTarget)
+                    }
+                } else {
+                    // If focussing, stop
+                    if (targettedSound != null) {
+                        stopFocussing()
+                    }
+                }
+            } else {
+                // Ensure sound has stopped playing
+                if (!soundTarget.isMediaPlayerNull()) {
+                    soundTarget.stopPlaying()
+                }
+            }
         }
 
-        // Ensure static effect is playing
-        if (staticEffect.isMediaPlayerNull()) {
-            staticEffect.startPlaying()
+        // Set static effect volume
+        staticEffect.setVolume(0.2f + 0.8f*(minAngleFromSound/secondaryAngle))
+    }
+
+    /**
+     * Start focussing on the given sound
+     */
+    fun startFocussing(soundTarget: SoundTarget) {
+        targettedSound = soundTarget
+        focusTimer.start()
+        val textView = findViewById<TextView>(R.id.textView3).apply {
+            text = "Focussing"
         }
+    }
 
-        // Execute sound logic
-        if (angleFromSoundDegrees <= secondaryAngle) {
-
-            // Ensure sound is streaming
-            if (testSound.isMediaPlayerNull()) {
-                testSound.startStreaming()
-            }
-
-            // Set sound volume relative to distance from sound
-            testSound.setVolume(1.0f - (angleFromSoundDegrees/secondaryAngle))
-
-            // Set static effect volume
-            staticEffect.setVolume(0.2f + 0.8f*(angleFromSoundDegrees/secondaryAngle))
-        } else {
-
-            // Ensure sound has stopped playing
-            if (!testSound.isMediaPlayerNull()) {
-                testSound.stopPlaying()
-            }
-
-            // Ensure static effect is full volume
-            staticEffect.setVolume(1.0f)
+    /**
+     * Stop focussing on any sounds
+     */
+    fun stopFocussing() {
+        isFocussed = false
+        targettedSound = null
+        focusTimer.cancel()
+        val textView = findViewById<TextView>(R.id.textView3).apply {
+            text = ""
         }
     }
 }
