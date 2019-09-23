@@ -156,7 +156,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     }
                 } else {
                     // If focussing, stop
-                    if (targettedSound != null) {
+                    if (targettedSound == soundTarget) {
                         stopFocussing()
                     }
                 }
