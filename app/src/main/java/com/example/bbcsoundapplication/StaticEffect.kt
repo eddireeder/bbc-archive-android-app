@@ -2,42 +2,52 @@ package com.example.bbcsoundapplication
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.media.SoundPool
 
 class StaticEffect (val context: Context) {
 
-    private var mediaPlayer: MediaPlayer? = null
+    private val soundPool: SoundPool
+    private var streamID: Int? = null
 
     /**
-     *  Initialise media player and start playing
+     * Initialise the sound pool and start playing the effect
      */
-    fun startPlaying() {
-        // Initialise media player and start it
-        mediaPlayer = MediaPlayer.create(context, R.raw.static_effect)
-        mediaPlayer?.apply {
-            start()
-            setLooping(true)
+    init {
+        SoundPool.Builder().let {
+            soundPool = it.build()
+        }
+        soundPool.setOnLoadCompleteListener(object: SoundPool.OnLoadCompleteListener {
+            override fun onLoadComplete(soundPool: SoundPool, sampleId: Int, status: Int) {
+                soundPool.play(sampleId, 1.0f, 1.0f, 1, -1, 1.0f)
+            }
+        })
+        soundPool.load(context, R.raw.static_effect, 1)
+    }
+
+    /**
+     *  Pause the sound effect
+     */
+    fun pause() {
+        streamID?.let {
+            soundPool.pause(it)
         }
     }
 
     /**
-     * Set media player volume
+     * Set the sound volume
      */
     fun setVolume(volume: Float) {
-        // Set the volume for left and right sound output
-        mediaPlayer?.setVolume(volume, volume)
+        streamID?.let {
+            soundPool.setVolume(it, volume, volume)
+        }
     }
 
     /**
-     * Stop playing and release media player
+     * Resume the sound effect
      */
-    fun stopPlaying() {
-        // Release and nullify media player
-        mediaPlayer?.release()
-        mediaPlayer = null
+    fun resume() {
+        streamID?.let {
+            soundPool.resume(it)
+        }
     }
-
-    /**
-     * Return whether media player exists
-     */
-    fun isMediaPlayerNull(): Boolean = (mediaPlayer == null)
 }

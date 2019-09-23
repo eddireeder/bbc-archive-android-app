@@ -8,6 +8,8 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
 import android.os.CountDownTimer
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.widget.TextView
 import kotlin.math.PI
@@ -25,6 +27,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var targettedSound: SoundTarget? = null
     private var isFocussed: Boolean = false
     private lateinit var focusTimer: CountDownTimer
+    private lateinit var vibrator: Vibrator
 
     /**
      * Called on creation of Activity
@@ -56,18 +59,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
-        staticEffect.startPlaying()
 
         // Initialise the focus timer
         focusTimer = object: CountDownTimer(5000, 5000) {
             override fun onTick(millisUntilFinished: Long) {}
-            override fun onFinish() {
-                isFocussed = true
-                val textView = findViewById<TextView>(R.id.textView3).apply {
-                    text = "Focussed"
-                }
-            }
+            override fun onFinish() = onFocussed()
         }
+
+        // Initialise vibrator
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
 
     /**
@@ -193,5 +193,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val textView = findViewById<TextView>(R.id.textView3).apply {
             text = ""
         }
+        staticEffect.resume()
+    }
+
+    /**
+     * Called once a sound has been focused on
+     */
+    fun onFocussed() {
+        isFocussed = true
+        vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+        val textView = findViewById<TextView>(R.id.textView3).apply {
+            text = "Focussed"
+        }
+        staticEffect.pause()
     }
 }
