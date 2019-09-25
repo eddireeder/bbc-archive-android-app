@@ -18,7 +18,7 @@ class StaticEffect (val context: Context) {
         }
         soundPool.setOnLoadCompleteListener(object: SoundPool.OnLoadCompleteListener {
             override fun onLoadComplete(soundPool: SoundPool, sampleId: Int, status: Int) {
-                soundPool.play(sampleId, 1.0f, 1.0f, 1, -1, 1.0f)
+                streamID = soundPool.play(sampleId, 1.0f, 1.0f, 1, -1, 1.0f)
             }
         })
         soundPool.load(context, R.raw.static_effect, 1)

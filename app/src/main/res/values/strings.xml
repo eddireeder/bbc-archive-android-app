@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">BBC Sound Application</string>
+    <string name="focussing">Focussing</string>
+    <string name="focussed">Focussed</string>
+    <string name="connection_error">Could not connect</string>
+    <string name="retrieving_sounds">Retrieving sounds</string>
 </resources>
