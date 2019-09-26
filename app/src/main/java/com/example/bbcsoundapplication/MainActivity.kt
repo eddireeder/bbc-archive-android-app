@@ -11,6 +11,7 @@ import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.view.WindowManager
 import android.widget.TextView
 import com.android.volley.Request
 import com.android.volley.Response
@@ -41,6 +42,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Keep the screen on
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         // Initialise sensor manager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
@@ -57,7 +61,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // Get sound targets
-        generateTestSoundTargets(50)
+        generateTestSoundTargets(20)
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
@@ -126,11 +130,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         var rotationMatrix: FloatArray = FloatArray(9)
         SensorManager.getRotationMatrixFromVector(rotationMatrix, rotationVector)
 
-        // Apply rotation matrix to device Z vector (0, 0, 1) to get the aim direction
-        val aimVector: FloatArray = floatArrayOf(rotationMatrix[2], rotationMatrix[5], rotationMatrix[8])
+        // Apply rotation matrix to device Y vector (0, 1, 0) to get the aim direction
+        val aimVector: FloatArray = floatArrayOf(rotationMatrix[1], rotationMatrix[4], rotationMatrix[7])
 
         // Store the minimum angle from a sound
         var minAngleFromSound: Float = secondaryAngle
+
+        // Record the sounds in earshot to display in logs
+        val inEarshot: MutableList<SoundTarget> = mutableListOf()
 
         for (soundTarget in soundTargets) {
 
@@ -143,9 +150,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             // If the aim is inside the secondary zone
             if (angleFromSound <= secondaryAngle) {
 
-                // Ensure sound is streaming and set the volume relative to distance away
+                // Add to in earshot list
+                inEarshot.add(soundTarget)
+
+                // Ensure sound is streaming
                 if (soundTarget.isMediaPlayerNull()) soundTarget.startStreaming()
-                soundTarget.setVolume(1.0f - (angleFromSound/secondaryAngle))
+
+                if (isFocussed && (targettedSound != soundTarget)) {
+                    // Focussed on another sound so set the volume to 0
+                    soundTarget.setVolume(0.0f)
+                } else {
+                    // Set the volume relative to distance away
+                    soundTarget.setVolume(1.0f - (angleFromSound/secondaryAngle))
+                }
 
                 // If the aim is inside the primary zone
                 if (angleFromSound <= primaryAngle) {
@@ -166,6 +183,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 }
             }
         }
+
+        // Log number of sounds in earshot
+        Log.i("Audible", inEarshot.size.toString())
 
         // Set static effect volume
         staticEffect.setVolume(0.2f + 0.8f*(minAngleFromSound/secondaryAngle))
@@ -275,6 +295,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 }
             })
 
+        // Don't cache the request
+        stringRequest.setShouldCache(false);
+
         // Add the request to the RequestQueue.
         queue.add(stringRequest)
     }
@@ -285,19 +308,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     fun generateRandomUnitVector(): FloatArray {
         // Generate random vector
         val vector: FloatArray = floatArrayOf(
-            Math.random().toFloat(),
-            Math.random().toFloat(),
-            Math.random().toFloat()
+            Math.random().toFloat() - 0.5f,
+            Math.random().toFloat() - 0.5f,
+            Math.random().toFloat() - 0.5f
         )
 
         // Normalise vector
         val magnitude: Float = sqrt(vector[0].pow(2) + vector[1].pow(2) + vector[2].pow(2))
-        val vectorNormalised: FloatArray = floatArrayOf(
+        return floatArrayOf(
             vector[0]/magnitude,
             vector[1]/magnitude,
             vector[2]/magnitude
         )
-        return vectorNormalised
     }
 
     /**
