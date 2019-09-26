@@ -11,6 +11,7 @@ import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.view.Window
 import android.view.WindowManager
 import android.widget.TextView
 import com.android.volley.Request
@@ -27,7 +28,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     private val primaryAngle: Float = 5.0f
-    private val secondaryAngle: Float = 30.0f
+    private val secondaryAngle: Float = 15.0f
     private lateinit var staticEffect: StaticEffect
 
     private var targettedSound: SoundTarget? = null
@@ -40,6 +41,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+
         setContentView(R.layout.activity_main)
 
         // Keep the screen on
@@ -61,7 +69,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // Get sound targets
-        generateTestSoundTargets(20)
+        generateTestSoundTargets(20, 30.0f)
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
@@ -212,6 +220,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val textView = findViewById<TextView>(R.id.textView).apply {
             text = ""
         }
+        val descriptionTextView = findViewById<TextView>(R.id.description).apply {
+            text = ""
+        }
+        val categoryTextView = findViewById<TextView>(R.id.category).apply {
+            text = ""
+        }
+        val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
+            text = ""
+        }
         staticEffect.resume()
     }
 
@@ -221,9 +238,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     fun onFocussed() {
         isFocussed = true
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+        val textView = findViewById<TextView>(R.id.textView).apply {
+            text = getString(R.string.focussed)
+        }
         targettedSound?.let {
-            val textView = findViewById<TextView>(R.id.textView).apply {
+            val descriptionTextView = findViewById<TextView>(R.id.description).apply {
                 text = it.description
+            }
+            val categoryTextView = findViewById<TextView>(R.id.category).apply {
+                text = it.category
+            }
+            val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
+                text = "${it.CDNumber} ${it.CDName} ${it.trackNum}"
             }
         }
         staticEffect.pause()
@@ -232,7 +258,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     /**
      * Generate an array of randomly chosen and spaced sound targets
      */
-    fun generateTestSoundTargets(numTargets: Int) {
+    fun generateTestSoundTargets(numTargets: Int, minDistanceBetween: Float) {
         // Update UI
         val textView = findViewById<TextView>(R.id.textView).apply {
             text = getString(R.string.retrieving_sounds)
@@ -248,7 +274,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             Response.Listener<String> {response ->
                 // Update UI
                 val textView = findViewById<TextView>(R.id.textView).apply {
-                    text = ""
+                    text = "Placing sounds"
                 }
 
                 // Parse response into sound targets
@@ -268,7 +294,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                         // Calculate proximity to all current sounds
                         for (soundTarget in soundTargets) {
-                            if (soundTarget.getDegreesFrom(directionVector) <= primaryAngle) {
+                            if (soundTarget.getDegreesFrom(directionVector) <= minDistanceBetween) {
                                 valid = false
                                 break
                             }
@@ -281,11 +307,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                                 lineSplit[1],
                                 lineSplit[2].toInt(),
                                 lineSplit[3],
+                                lineSplit[4],
+                                lineSplit[5],
+                                lineSplit[6],
                                 directionVector
                             ))
                             break
                         }
                     }
+                }
+                // Update UI
+                textView.apply {
+                    text = ""
                 }
             },
             Response.ErrorListener {

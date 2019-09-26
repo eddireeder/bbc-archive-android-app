@@ -11,6 +11,9 @@ class SoundTarget (
     val description: String,
     val seconds: Int,
     val category: String,
+    val CDNumber: String,
+    val CDName: String,
+    val trackNum: String,
     val directionVector: FloatArray
 ) : MediaPlayer.OnPreparedListener {
 
