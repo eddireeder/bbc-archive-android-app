@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = it.category
             }
             val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
-                text = "${it.CDNumber} ${it.CDName} ${it.trackNum}"
+                text = "${it.CDNumber} ${it.CDName} - ${it.trackNum}"
             }
         }
         staticEffect.pause()

@@ -4,13 +4,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity"
-    android:background="@color/colorBackground">
+    android:background="@color/colorBackground"
+    android:paddingHorizontal="16dp"
+    tools:context=".MainActivity">
 
     <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:textColor="@color/colorText"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -21,7 +23,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
-        android:text="Example category"
+        android:fontFamily="@font/berthold_akzidenz_grotesk_be_regular"
+        android:textAlignment="center"
         android:textColor="@color/colorText"
         app:layout_constraintBottom_toTopOf="@+id/trackInfo"
         app:layout_constraintEnd_toEndOf="parent"
@@ -32,10 +35,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
-        android:text="Example description"
+        android:fontFamily="@font/berthold_akzidenz_grotesk_be_medium"
+        android:textAlignment="center"
         android:textColor="@color/colorText"
         android:textSize="16sp"
-        android:textStyle="bold"
         app:layout_constraintBottom_toTopOf="@+id/category"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
@@ -45,9 +48,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="64dp"
-        android:text="(Example text in brackets)"
+        android:fontFamily="@font/berthold_akzidenz_grotesk_be_italic"
+        android:textAlignment="center"
         android:textColor="@color/colorText"
-        android:textStyle="italic"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
