@@ -13,7 +13,10 @@ import android.os.Vibrator
 import android.util.Log
 import android.view.Window
 import android.view.WindowManager
+import android.view.animation.RotateAnimation
+import android.widget.ImageView
 import android.widget.TextView
+import androidx.constraintlayout.widget.ConstraintLayout
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.StringRequest
@@ -35,6 +38,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var isFocussed: Boolean = false
     private lateinit var focusTimer: CountDownTimer
     private lateinit var vibrator: Vibrator
+
+    private var currentBearing: Float = 0.0f
 
     /**
      * Called on creation of Activity
@@ -360,5 +365,31 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     fun generateSoundTargets() {
 
+    }
+
+    /**
+     * Update the views that make up the compass
+     */
+    fun updateCompassViews(bearing: Float) {
+        // Retrieve required views
+        val northView: ImageView = findViewById(R.id.northView)
+        val eastView: ImageView = findViewById(R.id.eastView)
+        val southView: ImageView = findViewById(R.id.southView)
+        val westView: ImageView = findViewById(R.id.westView)
+
+        // Rotate views around parent's center
+        val compassRotate: RotateAnimation = RotateAnimation(
+            currentBearing,
+            -bearing,
+            RotateAnimation.RELATIVE_TO_PARENT,
+            0.5f,
+            RotateAnimation.RELATIVE_TO_PARENT,
+            0.5f
+        )
+
+        // Rotate views to remain upright
+        val selfRotate: RotateAnimiation = RotateAnimation(
+
+        )
     }
 }
