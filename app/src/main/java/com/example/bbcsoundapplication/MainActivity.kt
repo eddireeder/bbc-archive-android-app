@@ -366,30 +366,4 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     fun generateSoundTargets() {
 
     }
-
-    /**
-     * Update the views that make up the compass
-     */
-    fun updateCompassViews(bearing: Float) {
-        // Retrieve required views
-        val northView: ImageView = findViewById(R.id.northView)
-        val eastView: ImageView = findViewById(R.id.eastView)
-        val southView: ImageView = findViewById(R.id.southView)
-        val westView: ImageView = findViewById(R.id.westView)
-
-        // Rotate views around parent's center
-        val compassRotate: RotateAnimation = RotateAnimation(
-            currentBearing,
-            -bearing,
-            RotateAnimation.RELATIVE_TO_PARENT,
-            0.5f,
-            RotateAnimation.RELATIVE_TO_PARENT,
-            0.5f
-        )
-
-        // Rotate views to remain upright
-        val selfRotate: RotateAnimiation = RotateAnimation(
-
-        )
-    }
 }
