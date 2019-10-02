@@ -7,6 +7,7 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
+import android.media.SoundPool
 import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -21,6 +22,8 @@ import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -32,6 +35,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     private val primaryAngle: Float = 5.0f
     private val secondaryAngle: Float = 15.0f
+    private lateinit var soundPool: SoundPool
     private lateinit var staticEffect: StaticEffect
 
     private var targettedSound: SoundTarget? = null
@@ -39,14 +43,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var focusTimer: CountDownTimer
     private lateinit var vibrator: Vibrator
 
-    private var currentBearing: Float = 0.0f
-
     /**
      * Called on creation of Activity
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Enable full screen
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -73,8 +76,22 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         }
 
+        // Initialise sound pool
+        SoundPool.Builder().let {
+            soundPool = it.build()
+        }
+        soundPool.setOnLoadCompleteListener(object: SoundPool.OnLoadCompleteListener {
+            override fun onLoadComplete(soundPool: SoundPool, soundID: Int, status: Int) {
+                for (soundTarget in soundTargets) {
+                    if (soundTarget.soundID == soundID) {
+                        soundTarget.hasLoaded = true
+                    }
+                }
+            }
+        })
+
         // Get sound targets
-        generateTestSoundTargets(20, 30.0f)
+        generateSoundTargets()
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
@@ -130,6 +147,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "Accuracy high"
             else -> ""
         }
+        // TODO: Handle too low of an accuracy
     }
 
     /**
@@ -154,45 +172,65 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         for (soundTarget in soundTargets) {
 
-            // Get the angle between the device aim and the sound in degrees
-            val angleFromSound = soundTarget.getDegreesFrom(aimVector)
+            // If the sound hasn't loaded then don't continue with calculations
+            if (soundTarget.hasLoaded) {
 
-            // Replace if new minimum
-            if (angleFromSound < minAngleFromSound) minAngleFromSound = angleFromSound
+                // Get the angle between the device aim and the sound in degrees
+                val angleFromSound = soundTarget.getDegreesFrom(aimVector)
 
-            // If the aim is inside the secondary zone
-            if (angleFromSound <= secondaryAngle) {
+                // Replace if new minimum
+                if (angleFromSound < minAngleFromSound) minAngleFromSound = angleFromSound
 
-                // Add to in earshot list
-                inEarshot.add(soundTarget)
+                // If the aim is inside the secondary zone
+                if (angleFromSound <= secondaryAngle) {
 
-                // Ensure sound is streaming
-                if (soundTarget.isMediaPlayerNull()) soundTarget.startStreaming()
+                    // Add to in earshot list
+                    inEarshot.add(soundTarget)
 
-                if (isFocussed && (targettedSound != soundTarget)) {
-                    // Focussed on another sound so set the volume to 0
-                    soundTarget.setVolume(0.0f)
-                } else {
-                    // Set the volume relative to distance away
-                    soundTarget.setVolume(1.0f - (angleFromSound/secondaryAngle))
-                }
+                    // Calculate volume
+                    var volume: Float
 
-                // If the aim is inside the primary zone
-                if (angleFromSound <= primaryAngle) {
-                    // Start focussing if not already
-                    if (targettedSound == null) {
-                        startFocussing(soundTarget)
+                    if (isFocussed) {
+                        if (targettedSound == soundTarget) {
+                            // Focussed on sound so full volume
+                            volume = 1.0f
+                        } else {
+                            // Focussed on another sound so no volume
+                            volume = 0.0f
+                        }
+                    } else {
+                        // Volume relative to distance away (up to 80%)
+                        volume = (0.8f - 0.8f * (angleFromSound / secondaryAngle))
+                    }
+
+                    // Ensure sound is playing and set the volume
+                    if (soundTarget.streamID == null) {
+                        soundTarget.streamID =
+                            soundPool.play(soundTarget.soundID, volume, volume, 1, -1, 1.0f)
+                    } else {
+                        soundTarget.streamID?.let {
+                            soundPool.setVolume(it, volume, volume)
+                        }
+                    }
+
+                    // If the aim is inside the primary zone
+                    if (angleFromSound <= primaryAngle) {
+                        // Start focussing if not already
+                        if (targettedSound == null) {
+                            startFocussing(soundTarget)
+                        }
+                    } else {
+                        // If focussing, stop
+                        if (targettedSound == soundTarget) {
+                            stopFocussing()
+                        }
                     }
                 } else {
-                    // If focussing, stop
-                    if (targettedSound == soundTarget) {
-                        stopFocussing()
+                    // Ensure sound has stopped playing
+                    soundTarget.streamID?.let {
+                        soundPool.stop(it)
+                        soundTarget.streamID = null
                     }
-                }
-            } else {
-                // Ensure sound has stopped playing
-                if (!soundTarget.isMediaPlayerNull()) {
-                    soundTarget.stopPlaying()
                 }
             }
         }
@@ -263,107 +301,55 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     /**
      * Generate an array of randomly chosen and spaced sound targets
      */
-    fun generateTestSoundTargets(numTargets: Int, minDistanceBetween: Float) {
+    fun generateSoundTargets() {
         // Update UI
         val textView = findViewById<TextView>(R.id.textView).apply {
             text = getString(R.string.retrieving_sounds)
         }
 
-        // Instantiate the RequestQueue
-        val queue = Volley.newRequestQueue(this)
-        val url = "http://bbcsfx.acropolis.org.uk/assets/BBCSoundEffects.csv"
+        // TODO: Retrieve list of sounds to use (and their descriptions) from server. The server assumes they will exist in the app.
 
-        // Request a string response from the provided URL.
-        val stringRequest = StringRequest(
-            Request.Method.GET, url,
-            Response.Listener<String> {response ->
-                // Update UI
-                val textView = findViewById<TextView>(R.id.textView).apply {
-                    text = "Placing sounds"
-                }
+        // For now hard code it
+        val responseJSON = JSONObject("""{"sounds": [{"direction": {"x": 1.0, "y": 1.0, "z": 1.0}, "location": "07041022.wav", "description": "Example description", "category": "Example category", "CDNumber": "CD123", "CDName": "Example CD", "trackNum": 1}]}""")
 
-                // Parse response into sound targets
-                val responseLines: List<String> = response.split("\n").drop(1)
+        // Retrieve list of sounds
+        val soundJSONList: JSONArray = responseJSON.getJSONArray("sounds")
 
-                // Randomly pick N targets
-                val lines: List<String> = responseLines.shuffled().take(numTargets)
+        // Loop through sounds
+        for (i in 1..soundJSONList.length()) {
 
-                lines.forEachIndexed {index, line ->
-                    val lineSplit = line.drop(1).dropLast(1).split("""","""")
+            // Extract the sound JSON
+            val soundJSON: JSONObject = soundJSONList.getJSONObject(i - 1)
 
-                    while (true) {
-                        var valid: Boolean = true
+            // Extract the sound direction
+            val soundDirectionJSON: JSONObject = soundJSON.getJSONObject("direction")
+            val directionVector: FloatArray = floatArrayOf(
+                soundDirectionJSON.getDouble("x").toFloat(),
+                soundDirectionJSON.getDouble("y").toFloat(),
+                soundDirectionJSON.getDouble("z").toFloat()
+            )
 
-                        // Generate a direction vector for the sound (SHOULD BE DONE IN THE SERVER FOR THE REAL SOUNDS)
-                        val directionVector: FloatArray = generateRandomUnitVector()
+            // Retrieve the rest of the sound data
+            val location: String = soundJSON.getString("location")
+            val description: String = soundJSON.getString("description")
+            val category: String = soundJSON.getString("category")
+            val CDNumber: String = soundJSON.getString("CDNumber")
+            val CDName: String = soundJSON.getString("CDName")
+            val trackNum: Int = soundJSON.getInt("trackNum")
 
-                        // Calculate proximity to all current sounds
-                        for (soundTarget in soundTargets) {
-                            if (soundTarget.getDegreesFrom(directionVector) <= minDistanceBetween) {
-                                valid = false
-                                break
-                            }
-                        }
+            // Check resource exists and get id
+            val resID: Int = resources.getIdentifier("sound_${location.split(".")[0]}", "raw", this.packageName)
+            if (resID == 0) continue
 
-                        // Add sound target if still valid
-                        if (valid) {
-                            soundTargets.add(SoundTarget(
-                                lineSplit[0],
-                                lineSplit[1],
-                                lineSplit[2].toInt(),
-                                lineSplit[3],
-                                lineSplit[4],
-                                lineSplit[5],
-                                lineSplit[6],
-                                directionVector
-                            ))
-                            break
-                        }
-                    }
-                }
-                // Update UI
-                textView.apply {
-                    text = ""
-                }
-            },
-            Response.ErrorListener {
-                // Update UI
-                val textView = findViewById<TextView>(R.id.textView).apply {
-                    text = getString(R.string.connection_error)
-                }
-            })
+            // Start to load into sound pool
+            val soundID: Int = soundPool.load(this, resID, 1)
 
-        // Don't cache the request
-        stringRequest.setShouldCache(false);
-
-        // Add the request to the RequestQueue.
-        queue.add(stringRequest)
-    }
-
-    /**
-     * Generate a random unit vector
-     */
-    fun generateRandomUnitVector(): FloatArray {
-        // Generate random vector
-        val vector: FloatArray = floatArrayOf(
-            Math.random().toFloat() - 0.5f,
-            Math.random().toFloat() - 0.5f,
-            Math.random().toFloat() - 0.5f
-        )
-
-        // Normalise vector
-        val magnitude: Float = sqrt(vector[0].pow(2) + vector[1].pow(2) + vector[2].pow(2))
-        return floatArrayOf(
-            vector[0]/magnitude,
-            vector[1]/magnitude,
-            vector[2]/magnitude
-        )
-    }
-
-    /**
-     * Get an array of sound targets from the server
-     */
-    fun generateSoundTargets() {
-
+            // Create sound target object and add to list
+            soundTargets.add(SoundTarget(directionVector, location, description, category, CDNumber, CDName, trackNum, soundID))
+        }
+        // Update UI
+        textView.apply {
+            text = ""
+        }
     }
 }

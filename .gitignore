@@ -12,3 +12,7 @@
 /captures
 .externalNativeBuild
 .cxx
+
+/res/raw/*.wav
+!soundbed.wav
+!static_effect.wav

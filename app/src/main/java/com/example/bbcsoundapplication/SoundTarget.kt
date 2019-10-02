@@ -7,55 +7,18 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 class SoundTarget (
+    val directionVector: FloatArray,
     val location: String,
     val description: String,
-    val seconds: Int,
     val category: String,
     val CDNumber: String,
     val CDName: String,
-    val trackNum: String,
-    val directionVector: FloatArray
-) : MediaPlayer.OnPreparedListener {
+    val trackNum: Int,
+    val soundID: Int
+) {
 
-    private var mediaPlayer: MediaPlayer? = null
-
-    /**
-     * Initialise media player and prepare to play
-     */
-    fun startStreaming() {
-        // Initialise media player and prepare
-        mediaPlayer = MediaPlayer().apply {
-            setDataSource("http://bbcsfx.acropolis.org.uk/assets/${location}")
-            setOnPreparedListener(this@SoundTarget)
-            prepareAsync()
-        }
-    }
-
-    /**
-     * Called when media player is ready
-     */
-    override fun onPrepared(mp: MediaPlayer?) {
-        // Start playing
-        mp?.start()
-        mp?.setLooping(true)
-    }
-
-    /**
-     * Set media player volume
-     */
-    fun setVolume(volume: Float) {
-        // Set the volume for left and right sound output
-        mediaPlayer?.setVolume(volume, volume)
-    }
-
-    /**
-     * Stop playing and release media player
-     */
-    fun stopPlaying() {
-        // Release and nullify media player
-        mediaPlayer?.release()
-        mediaPlayer = null
-    }
+    var hasLoaded: Boolean = false
+    var streamID: Int? = null
 
     /**
      * Get the angle between the given vector and this sound in degrees
@@ -70,9 +33,4 @@ class SoundTarget (
         // Angle between the vectors
         return acos(dot/absProduct)*(180.0f/ PI.toFloat())
     }
-
-    /**
-     * Return whether media player exists
-     */
-    fun isMediaPlayerNull(): Boolean = (mediaPlayer == null)
 }
