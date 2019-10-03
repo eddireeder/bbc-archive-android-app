@@ -34,7 +34,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     private val primaryAngle: Float = 5.0f
-    private val secondaryAngle: Float = 15.0f
+    private val secondaryAngle: Float = 30.0f
     private lateinit var soundPool: SoundPool
     private lateinit var staticEffect: StaticEffect
 
@@ -178,6 +178,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // Get the angle between the device aim and the sound in degrees
                 val angleFromSound = soundTarget.getDegreesFrom(aimVector)
 
+                Log.i("Angle from sound", angleFromSound.toString())
+
                 // Replace if new minimum
                 if (angleFromSound < minAngleFromSound) minAngleFromSound = angleFromSound
 
@@ -234,7 +236,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 }
             }
         }
-
         // Log number of sounds in earshot
         Log.i("Audible", inEarshot.size.toString())
 
