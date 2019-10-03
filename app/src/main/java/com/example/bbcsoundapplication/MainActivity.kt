@@ -14,18 +14,9 @@ import android.os.Vibrator
 import android.util.Log
 import android.view.Window
 import android.view.WindowManager
-import android.view.animation.RotateAnimation
-import android.widget.ImageView
 import android.widget.TextView
-import androidx.constraintlayout.widget.ConstraintLayout
-import com.android.volley.Request
-import com.android.volley.Response
-import com.android.volley.toolbox.StringRequest
-import com.android.volley.toolbox.Volley
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -130,7 +121,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Unregister this listener
         sensorManager.unregisterListener(this)
 
-        // Stop the static effect
+        // Pause the static effect
         staticEffect.pause()
     }
 
