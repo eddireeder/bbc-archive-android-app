@@ -5,70 +5,81 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Message
 import android.util.AttributeSet
 import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 
-class ParticleView : SurfaceView, SurfaceHolder.Callback, Choreographer.FrameCallback {
+class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
     constructor(context: Context): super(context)
     constructor(context: Context, attrs: AttributeSet): super(context, attrs)
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int): super(context, attrs, defStyleAttr)
 
     private val paint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
     private var circlePosition: FloatArray = floatArrayOf(0f, 0f)
-    private var circleVelocity: FloatArray = floatArrayOf(500f, 500f)
+    private var circleVelocity: FloatArray = floatArrayOf(100f, 100f)
+
+    private var currentFrameTimeNanos: Long = System.nanoTime()
+
+    private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
+    private var particleHandler: Handler? = null
 
     init {
-        // Register surface holder callback
-        holder.addCallback(this)
-
         // Register choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
 
         // Set the paint colour
         paint.color = Color.WHITE
-    }
 
-    /**
-     * Called on creation of the surface
-     */
-    override fun surfaceCreated(holder: SurfaceHolder?) {
-
-    }
-
-    /**
-     * Called on changes to the surface
-     */
-    override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
-
-    }
-
-    /**
-     * Called on destruction of the surface
-     */
-    override fun surfaceDestroyed(holder: SurfaceHolder?) {
-
+        // Initialise handler thread
+        particleHandlerThread.start()
+        particleHandler = object : Handler(particleHandlerThread.looper) {
+            // Executed in the non-UI/background thread
+            override fun handleMessage(msg: Message) {
+                update()
+                draw()
+            }
+        }
     }
 
     /**
      * Given time in nano seconds at last VSYNC
      */
     override fun doFrame(frameTimeNanos: Long) {
+        // Update with latest frameTime
+        currentFrameTimeNanos = frameTimeNanos
+
+        // Send empty message to handler thread
+        particleHandler?.sendEmptyMessage(1)
+
         // Reregister choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
+    }
 
+    /**
+     * Update the particle positions and velocities
+     */
+    fun update() {
         // Calculate delta time in seconds
-        val deltaTimeNano: Float = (System.nanoTime() - frameTimeNanos)*0.000000001f
+        val deltaTimeNano: Float = (System.nanoTime() - currentFrameTimeNanos)*0.000000001f
 
         // Calculate new circle x position
         circlePosition[0] += circleVelocity[0]*deltaTimeNano
 
         // Calculate new circle y position
         circlePosition[1] += circleVelocity[1]*deltaTimeNano
+    }
 
+    /**
+     * Draw the latest particle positions
+     */
+    fun draw() {
         // Draw circle at its position
         holder?.let {
             // Try to retrieve canvas
