@@ -12,6 +12,8 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColor
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
@@ -22,9 +24,12 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val backgroundColour: Int = ContextCompat.getColor(context, R.color.colorBackground)
     private val paint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private var circlePosition: FloatArray = floatArrayOf(200f, 200f)
-    private var circleVelocity: FloatArray = floatArrayOf(-100f, 100f)
-
+    private val numParticles: Int = 10
+    private val particleRadius: Float = 10f
+    private val centreRadius: Float = 400f
+    private val boundaryForceConstant: Float = 50f
+    private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
+    private var centrePosition: FloatArray = floatArrayOf(0f, 0f)
     private var currentFrameTimeNanos: Long = System.nanoTime()
 
     private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
@@ -37,6 +42,11 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Set the paint colour
         paint.color = Color.WHITE
 
+        // Initialise particles at (0, 0)
+        for (i in 1..particleArray.size) {
+            particleArray[i - 1] = Particle(floatArrayOf(0f, 0f))
+        }
+
         // Initialise handler thread
         particleHandlerThread.start()
         particleHandler = object : Handler(particleHandlerThread.looper) {
@@ -46,6 +56,31 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
                 draw()
             }
         }
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+
+        // Store the view's centre
+        centrePosition = floatArrayOf(width/2f, height/2f)
+
+        // Place particles at random positions
+        for (particle in particleArray) {
+            particle?.let {
+                val initialPosition: FloatArray = floatArrayOf(
+                    (0..width).random().toFloat(),
+                    (0..height).random().toFloat()
+                )
+                it.position = initialPosition
+            }
+        }
+    }
+
+    /**
+     * Called on initial layout and any screen size changes
+     */
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        centrePosition = floatArrayOf(w/2f, h/2f)
     }
 
     /**
@@ -69,28 +104,47 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Calculate delta time in seconds
         val deltaTime: Float = (System.nanoTime() - currentFrameTimeNanos)*0.000000001f
 
-        // Compute new acceleration (towards centre)
-        val centrePosition: FloatArray = floatArrayOf(width/2f, height/2f)
-        val acceleration: FloatArray = floatArrayOf(
-            centrePosition[0] - circlePosition[0],
-            centrePosition[1] - circlePosition[1]
-        )
+        for (particle in particleArray) {
+            particle?.let {
+                // Calculate vector to centre
+                val toCentre: FloatArray = floatArrayOf(
+                    centrePosition[0] - it.position[0],
+                    centrePosition[1] - it.position[1]
+                )
 
-        // Compute the final velocity
-        val finalVelocity: FloatArray = floatArrayOf(
-            circleVelocity[0] + acceleration[0]*deltaTime,
-            circleVelocity[1] + acceleration[1]*deltaTime
-        )
+                // Compute the distance/magnitude of this vector
+                val magnitude: Float = sqrt(toCentre[0].pow(2) + toCentre[1].pow(2))
 
-        // Calculate new circle position
-        val newPosition: FloatArray = floatArrayOf(
-            circlePosition[0] + ((circleVelocity[0] + finalVelocity[0])/2)*deltaTime,
-            circlePosition[1] + ((circleVelocity[1] + finalVelocity[1])/2)*deltaTime
-        )
+                // If outside the boundary, accelerate towards the centre
+                val acceleration: FloatArray = if (magnitude > centreRadius) {
+                    floatArrayOf(
+                        (toCentre[0]/magnitude)*boundaryForceConstant,
+                        (toCentre[1]/magnitude)*boundaryForceConstant
+                    )
+                } else {
+                    floatArrayOf(
+                        0f,
+                        0f
+                    )
+                }
 
-        // Replace velocity and position with new values
-        circleVelocity = finalVelocity
-        circlePosition = newPosition
+                // Compute the final velocity
+                val finalVelocity: FloatArray = floatArrayOf(
+                    it.velocity[0] + acceleration[0]*deltaTime,
+                    it.velocity[1] + acceleration[1]*deltaTime
+                )
+
+                // Calculate new circle position
+                val newPosition: FloatArray = floatArrayOf(
+                    it.position[0] + ((it.velocity[0] + finalVelocity[0])/2)*deltaTime,
+                    it.position[1] + ((it.velocity[1] + finalVelocity[1])/2)*deltaTime
+                )
+
+                // Replace velocity and position with new values
+                it.velocity = finalVelocity
+                it.position = newPosition
+            }
+        }
     }
 
     /**
@@ -108,8 +162,12 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
             // Clear the canvas
             canvas.drawColor(backgroundColour, PorterDuff.Mode.SRC_OVER)
 
-            // Draw a circle
-            canvas.drawCircle(circlePosition[0], circlePosition[1], 10f, paint)
+            // Draw a circle for each particle
+            for (particle in particleArray) {
+                particle?.let {
+                    canvas.drawCircle(it.position[0], it.position[1], particleRadius, paint)
+                }
+            }
 
             // Post canvas to surface
             it.unlockCanvasAndPost(canvas)
