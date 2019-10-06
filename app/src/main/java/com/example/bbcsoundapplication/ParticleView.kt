@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColor
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
@@ -24,12 +25,13 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val backgroundColour: Int = ContextCompat.getColor(context, R.color.colorBackground)
     private val paint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 10
+    private val numParticles: Int = 25
     private val particleRadius: Float = 10f
-    private val centreRadius: Float = 400f
-    private val boundaryForceConstant: Float = 50f
+    private val maxSpeed: Float = 300f
+    private val centreForce: Float = 1200f
+
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
-    private var centrePosition: FloatArray = floatArrayOf(0f, 0f)
+    private var centrePosition: FloatArray? = null
     private var currentFrameTimeNanos: Long = System.nanoTime()
 
     private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
@@ -42,9 +44,15 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Set the paint colour
         paint.color = Color.WHITE
 
-        // Initialise particles at (0, 0)
+        // Initialise particles at (0, 0) with velocity of random distance and max speed
         for (i in 1..particleArray.size) {
-            particleArray[i - 1] = Particle(floatArrayOf(0f, 0f))
+            val velocity: FloatArray = floatArrayOf(Random.nextFloat(), Random.nextFloat())
+            val magnitude: Float = sqrt(velocity[0].pow(2) + velocity[1].pow(2))
+            val velocityWithMaxSpeed: FloatArray = floatArrayOf(
+                (velocity[0]/magnitude)*maxSpeed,
+                (velocity[1]/magnitude)*maxSpeed
+            )
+            particleArray[i - 1] = Particle(floatArrayOf(0f, 0f), velocityWithMaxSpeed)
         }
 
         // Initialise handler thread
@@ -101,38 +109,43 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      * Update the particle positions and velocities
      */
     fun update() {
+        // Start updating once we have the centre position
+        if (centrePosition == null) return
+
         // Calculate delta time in seconds
         val deltaTime: Float = (System.nanoTime() - currentFrameTimeNanos)*0.000000001f
 
         for (particle in particleArray) {
             particle?.let {
+
                 // Calculate vector to centre
                 val toCentre: FloatArray = floatArrayOf(
-                    centrePosition[0] - it.position[0],
-                    centrePosition[1] - it.position[1]
+                    centrePosition!![0] - it.position[0],
+                    centrePosition!![1] - it.position[1]
                 )
 
-                // Compute the distance/magnitude of this vector
-                val magnitude: Float = sqrt(toCentre[0].pow(2) + toCentre[1].pow(2))
+                // Calculate magnitude
+                val toCentreMagnitude: Float = sqrt(toCentre[0].pow(2) + toCentre[1].pow(2))
 
-                // If outside the boundary, accelerate towards the centre
-                val acceleration: FloatArray = if (magnitude > centreRadius) {
-                    floatArrayOf(
-                        (toCentre[0]/magnitude)*boundaryForceConstant,
-                        (toCentre[1]/magnitude)*boundaryForceConstant
-                    )
-                } else {
-                    floatArrayOf(
-                        0f,
-                        0f
-                    )
-                }
+                // Normalise the vector and multiply by acceleration constant to get acceleration
+                val acceleration: FloatArray = floatArrayOf(
+                    (toCentre[0]/toCentreMagnitude)*centreForce,
+                    (toCentre[1]/toCentreMagnitude)*centreForce
+                )
 
                 // Compute the final velocity
                 val finalVelocity: FloatArray = floatArrayOf(
                     it.velocity[0] + acceleration[0]*deltaTime,
                     it.velocity[1] + acceleration[1]*deltaTime
                 )
+
+                // Limit magnitude to max speed
+                val finalVelocityMagnitude = sqrt(finalVelocity[0].pow(2) + finalVelocity[1].pow(2))
+
+                if (finalVelocityMagnitude > maxSpeed) {
+                    finalVelocity[0] = (finalVelocity[0]/finalVelocityMagnitude)*maxSpeed
+                    finalVelocity[1] = (finalVelocity[1]/finalVelocityMagnitude)*maxSpeed
+                }
 
                 // Calculate new circle position
                 val newPosition: FloatArray = floatArrayOf(
