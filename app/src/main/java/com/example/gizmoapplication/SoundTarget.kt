@@ -10,8 +10,8 @@ class SoundTarget (
     val location: String,
     val description: String,
     val category: String,
-    val CDNumber: String,
-    val CDName: String,
+    val cdNumber: String,
+    val cdName: String,
     val trackNum: Int,
     val soundID: Int
 ) {

@@ -15,6 +15,10 @@ import android.util.Log
 import android.view.Window
 import android.view.WindowManager
 import android.widget.TextView
+import com.android.volley.Request
+import com.android.volley.Response
+import com.android.volley.toolbox.JsonObjectRequest
+import com.android.volley.toolbox.Volley
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -83,7 +87,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         })
 
         // Get sound targets
-        generateSoundTargets()
+        updateSoundTargets("localhost:3000/sounds")
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
@@ -291,64 +295,79 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = it.category
             }
             val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
-                text = "${it.CDNumber} ${it.CDName} - ${it.trackNum}"
+                text = "${it.cdNumber} ${it.cdName} - ${it.trackNum}"
             }
         }
         staticEffect.pause()
     }
 
     /**
-     * Generate an array of randomly chosen and spaced sound targets
+     * Get an array of selected sound targets from the server and update soundTargets variable
      */
-    fun generateSoundTargets() {
+    fun updateSoundTargets(url: String) {
         // Update UI
         val textView = findViewById<TextView>(R.id.textView).apply {
             text = getString(R.string.retrieving_sounds)
         }
 
-        // TODO: Retrieve list of sounds to use (and their descriptions) from server. The server assumes they will exist in the app.
+        // Instantiate the RequestQueue
+        val queue = Volley.newRequestQueue(this)
 
-        // For now hard code it
-        val responseJSON = JSONObject("""{"sounds": [{"direction": {"x": 1.0, "y": 1.0, "z": 1.0}, "location": "07041022.wav", "description": "Example description", "category": "Example category", "CDNumber": "CD123", "CDName": "Example CD", "trackNum": 1}]}""")
+        // Retrieve sound JSON from server
+        val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, url, null,
+            Response.Listener {response ->
+                // Extract the JSON array of sounds
+                val soundJSONArray: JSONArray = response.getJSONArray("sounds")
 
-        // Retrieve list of sounds
-        val soundJSONList: JSONArray = responseJSON.getJSONArray("sounds")
+                // Loop through sounds
+                for (i in 1..soundJSONArray.length()) {
 
-        // Loop through sounds
-        for (i in 1..soundJSONList.length()) {
+                    // Extract the sound JSON
+                    val soundJSON: JSONObject = soundJSONArray.getJSONObject(i - 1)
 
-            // Extract the sound JSON
-            val soundJSON: JSONObject = soundJSONList.getJSONObject(i - 1)
+                    // Extract the sound direction as a float array
+                    val directionVector: FloatArray = floatArrayOf(
+                        soundJSON.getDouble("directionX").toFloat(),
+                        soundJSON.getDouble("directionY").toFloat(),
+                        soundJSON.getDouble("directionZ").toFloat()
+                    )
 
-            // Extract the sound direction
-            val soundDirectionJSON: JSONObject = soundJSON.getJSONObject("direction")
-            val directionVector: FloatArray = floatArrayOf(
-                soundDirectionJSON.getDouble("x").toFloat(),
-                soundDirectionJSON.getDouble("y").toFloat(),
-                soundDirectionJSON.getDouble("z").toFloat()
-            )
+                    // Retrieve the rest of the sound data
+                    val location: String = soundJSON.getString("location")
+                    val description: String = soundJSON.getString("description")
+                    val category: String = soundJSON.getString("category")
+                    val cdNumber: String = soundJSON.getString("cdNumber")
+                    val cdName: String = soundJSON.getString("cdName")
+                    val trackNum: Int = soundJSON.getInt("trackNum")
 
-            // Retrieve the rest of the sound data
-            val location: String = soundJSON.getString("location")
-            val description: String = soundJSON.getString("description")
-            val category: String = soundJSON.getString("category")
-            val CDNumber: String = soundJSON.getString("CDNumber")
-            val CDName: String = soundJSON.getString("CDName")
-            val trackNum: Int = soundJSON.getInt("trackNum")
+                    // Check resource exists and get id
+                    val resID: Int = resources.getIdentifier("sound_${location.split(".")[0]}", "raw", this.packageName)
+                    if (resID == 0) continue
 
-            // Check resource exists and get id
-            val resID: Int = resources.getIdentifier("sound_${location.split(".")[0]}", "raw", this.packageName)
-            if (resID == 0) continue
+                    // Start to load into sound pool
+                    val soundID: Int = soundPool.load(this, resID, 1)
 
-            // Start to load into sound pool
-            val soundID: Int = soundPool.load(this, resID, 1)
+                    // Create sound target object and add to list
+                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNum, soundID))
+                }
 
-            // Create sound target object and add to list
-            soundTargets.add(SoundTarget(directionVector, location, description, category, CDNumber, CDName, trackNum, soundID))
-        }
-        // Update UI
-        textView.apply {
-            text = ""
-        }
+                // Update UI
+                textView.apply {
+                    text = ""
+                }
+            },
+            Response.ErrorListener {error ->
+                // Update UI
+                textView.apply {
+                    text = resources.getString(R.string.connection_error)
+                }
+            }
+        )
+
+        // Don't cache the request
+        jsonObjectRequest.setShouldCache(false);
+
+        // Add the request to the RequestQueue
+        queue.add(jsonObjectRequest)
     }
 }
