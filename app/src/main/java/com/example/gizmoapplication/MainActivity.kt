@@ -1,4 +1,4 @@
-package com.example.bbcsoundapplication
+package com.example.gizmoapplication
 
 import android.content.Context
 import android.hardware.Sensor
@@ -24,11 +24,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var rotationVectorSensor: Sensor
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
-    private val primaryAngle: Float = 5.0f
-    private val secondaryAngle: Float = 30.0f
+    val primaryAngle: Float = 5f
+    val secondaryAngle: Float = 30f
     private lateinit var soundPool: SoundPool
     private lateinit var staticEffect: StaticEffect
 
+    var minAngleFromSound: Float = 180f
     private var targettedSound: SoundTarget? = null
     private var isFocussed: Boolean = false
     private lateinit var focusTimer: CountDownTimer
@@ -155,8 +156,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Apply rotation matrix to device Y vector (0, 1, 0) to get the aim direction
         val aimVector: FloatArray = floatArrayOf(rotationMatrix[1], rotationMatrix[4], rotationMatrix[7])
 
-        // Store the minimum angle from a sound
-        var minAngleFromSound: Float = secondaryAngle
+        // Reset the minimum angle
+        minAngleFromSound = 180f
 
         // Record the sounds in earshot to display in logs
         val inEarshot: MutableList<SoundTarget> = mutableListOf()
@@ -231,7 +232,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         Log.i("Audible", inEarshot.size.toString())
 
         // Set static effect volume
-        staticEffect.setVolume(0.2f + 0.8f*(minAngleFromSound/secondaryAngle))
+        val staticVolume: Float = if (minAngleFromSound < secondaryAngle) {
+            0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
+        } else {
+            1.0f
+        }
+
+        staticEffect.setVolume(staticVolume)
     }
 
     /**

@@ -1,4 +1,4 @@
-package com.example.bbcsoundapplication
+package com.example.gizmoapplication
 
 class Particle(initialPosition: FloatArray, initialVelocity: FloatArray) {
 

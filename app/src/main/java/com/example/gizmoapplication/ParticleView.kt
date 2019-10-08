@@ -1,4 +1,4 @@
-package com.example.bbcsoundapplication
+package com.example.gizmoapplication
 
 import android.content.Context
 import android.graphics.*
@@ -6,12 +6,9 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Choreographer
-import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.toColor
 import kotlin.math.pow
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -28,7 +25,6 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val numParticles: Int = 25
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
-    private val centreForce: Float = 1200f
 
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
     private var centrePosition: FloatArray? = null
@@ -114,6 +110,14 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
         // Calculate delta time in seconds
         val deltaTime: Float = (System.nanoTime() - currentFrameTimeNanos)*0.000000001f
+
+        // Calculate the current centre force
+        val mainActivity: MainActivity = context as MainActivity
+        val centreForce = if (mainActivity.minAngleFromSound < mainActivity.secondaryAngle) {
+            300f + 1200f*((mainActivity.secondaryAngle - mainActivity.minAngleFromSound)/mainActivity.secondaryAngle)
+        } else {
+            300f
+        }
 
         for (particle in particleArray) {
             particle?.let {

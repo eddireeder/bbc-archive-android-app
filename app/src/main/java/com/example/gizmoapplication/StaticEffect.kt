@@ -1,7 +1,6 @@
-package com.example.bbcsoundapplication
+package com.example.gizmoapplication
 
 import android.content.Context
-import android.media.MediaPlayer
 import android.media.SoundPool
 
 class StaticEffect (val context: Context) {

@@ -1,2 +1,2 @@
 include ':app'
-rootProject.name='BBC Sound Application'
+rootProject.name='Gizmo Application'

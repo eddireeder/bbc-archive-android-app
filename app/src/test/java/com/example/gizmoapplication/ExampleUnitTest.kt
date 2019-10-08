@@ -1,4 +1,4 @@
-package com.example.bbcsoundapplication
+package com.example.gizmoapplication
 
 import org.junit.Test
 
