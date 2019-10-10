@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         })
 
         // Get sound targets
-        updateSoundTargets("localhost:3000/sounds")
+        updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
 
         // Initialise static background sound and start playing
         staticEffect = StaticEffect(this)
