@@ -12,7 +12,7 @@ class SoundTarget (
     val category: String,
     val cdNumber: String,
     val cdName: String,
-    val trackNum: Int,
+    val trackNumber: Int,
     val soundID: Int
 ) {
 

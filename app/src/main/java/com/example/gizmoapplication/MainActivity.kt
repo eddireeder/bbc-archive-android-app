@@ -29,7 +29,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     val primaryAngle: Float = 5f
-    val secondaryAngle: Float = 30f
+    val secondaryAngle: Float = 50f
     private lateinit var soundPool: SoundPool
     private lateinit var staticEffect: StaticEffect
 
@@ -174,7 +174,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // Get the angle between the device aim and the sound in degrees
                 val angleFromSound = soundTarget.getDegreesFrom(aimVector)
 
-                Log.i("Angle from sound", angleFromSound.toString())
+                //Log.i("Angle from sound", angleFromSound.toString())
 
                 // Replace if new minimum
                 if (angleFromSound < minAngleFromSound) minAngleFromSound = angleFromSound
@@ -232,8 +232,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 }
             }
         }
-        // Log number of sounds in earshot
-        Log.i("Audible", inEarshot.size.toString())
+        // Log sounds in earshot
+        var earshotLocations: String = ""
+        for (sound in inEarshot) {
+            earshotLocations += "${sound.location} "
+        }
+        Log.i("Audible", earshotLocations)
 
         // Set static effect volume
         val staticVolume: Float = if (minAngleFromSound < secondaryAngle) {
@@ -295,7 +299,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = it.category
             }
             val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
-                text = "${it.cdNumber} ${it.cdName} - ${it.trackNum}"
+                text = "${it.cdNumber} ${it.cdName} - ${it.trackNumber}"
             }
         }
         staticEffect.pause()
@@ -338,7 +342,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     val category: String = soundJSON.getString("category")
                     val cdNumber: String = soundJSON.getString("cdNumber")
                     val cdName: String = soundJSON.getString("cdName")
-                    val trackNum: Int = soundJSON.getInt("trackNum")
+                    val trackNumber: Int = soundJSON.getInt("trackNumber")
 
                     // Check resource exists and get id
                     val resID: Int = resources.getIdentifier("sound_${location.split(".")[0]}", "raw", this.packageName)
@@ -348,7 +352,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     val soundID: Int = soundPool.load(this, resID, 1)
 
                     // Create sound target object and add to list
-                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNum, soundID))
+                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber, soundID))
                 }
 
                 // Update UI

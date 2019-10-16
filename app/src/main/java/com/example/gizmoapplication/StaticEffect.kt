@@ -20,7 +20,7 @@ class StaticEffect (val context: Context) {
                 streamID = soundPool.play(sampleId, 1.0f, 1.0f, 1, -1, 1.0f)
             }
         })
-        soundPool.load(context, R.raw.static_effect, 1)
+        soundPool.load(context, R.raw.soundbed, 1)
     }
 
     /**

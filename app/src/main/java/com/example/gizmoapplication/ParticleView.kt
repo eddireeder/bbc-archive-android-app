@@ -37,8 +37,10 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Register choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
 
-        // Set the paint colour
+        // Format the points
         paint.color = Color.WHITE
+        paint.strokeWidth = particleRadius
+        paint.strokeCap = Paint.Cap.ROUND
 
         // Initialise particles at (0, 0) with velocity of random distance and max speed
         for (i in 1..particleArray.size) {
@@ -170,6 +172,16 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     fun draw() {
         // Draw circle at its position
         holder?.let {
+            // Extract particle positions as array
+            val pointPositions: FloatArray = FloatArray(numParticles*2)
+
+            for (i in 0 until numParticles) {
+                particleArray[i]?.let {
+                    pointPositions[2*i] = it.position[0]
+                    pointPositions[2*i + 1] = it.position[1]
+                }
+            }
+
             // Try to retrieve canvas
             val canvas: Canvas? = it.lockCanvas()
 
@@ -179,12 +191,8 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
             // Clear the canvas
             canvas.drawColor(backgroundColour, PorterDuff.Mode.SRC_OVER)
 
-            // Draw a circle for each particle
-            for (particle in particleArray) {
-                particle?.let {
-                    canvas.drawCircle(it.position[0], it.position[1], particleRadius, paint)
-                }
-            }
+            // Draw a point for each particle
+            canvas.drawPoints(pointPositions, paint)
 
             // Post canvas to surface
             it.unlockCanvasAndPost(canvas)
