@@ -16,6 +16,7 @@ class MediaPlayerPool(maxStreams: Int) {
             // Start with 0 volume
             setVolume(0f, 0f)
             start()
+            isLooping = true
         }
         setOnCompletionListener { recyclePlayer(it) }
     }

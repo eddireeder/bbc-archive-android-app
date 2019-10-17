@@ -30,10 +30,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     val primaryAngle: Float = 5f
-    val secondaryAngle: Float = 50f
+    val secondaryAngle: Float = 30f
     private lateinit var staticEffect: StaticEffect
 
-    private val maxMediaPlayers: Int = 5
+    private val maxMediaPlayers: Int = 3
     private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
     var minAngleFromSound: Float = 180f
@@ -148,25 +148,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Retrieve ordered list of sound targets
         val orderedSoundTargets: List<SoundTarget> = soundTargets.sortedBy {it.degreesFromAim}
 
-        // If we have a closest target
-        orderedSoundTargets[0]?.let { soundTarget ->
-
-            // Assign min angle
-            minAngleFromSound = soundTarget.degreesFromAim
-
-            if (soundTarget.degreesFromAim <= primaryAngle) {
-                // Ensure focussing on target
-                if (targettedSound != soundTarget) {
-                    startFocussing(soundTarget)
-                }
-            } else {
-                // If focussing, stop
-                if (targettedSound == soundTarget) {
-                    stopFocussing()
-                }
-            }
-        }
-
         // Recycle media players first before allocating them
         for (i in orderedSoundTargets.indices) {
             if (
@@ -182,6 +163,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         for (i in orderedSoundTargets.indices) {
+
+            // If the closest target
+            if (i === 0) {
+                // Assign min angle
+                minAngleFromSound = orderedSoundTargets[i].degreesFromAim
+
+                if (orderedSoundTargets[i].degreesFromAim <= primaryAngle) {
+                    // Ensure focussing on target
+                    if (targettedSound != orderedSoundTargets[i]) {
+                        startFocussing(orderedSoundTargets[i])
+                    }
+                } else {
+                    // If focussing, stop
+                    if (targettedSound == orderedSoundTargets[i]) {
+                        stopFocussing()
+                    }
+                }
+            }
 
             // Find targets that have no media player but need one
             if (
@@ -204,26 +203,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     }
                 }
             }
-        }
 
-        // Calculate and set the volume for the sound targets with media players allocated
-        for (soundTarget in orderedSoundTargets.takeWhile { it.mediaPlayer !== null }) {
+            // If sound target has media player
+            orderedSoundTargets[i].mediaPlayer?.apply {
 
-            val volume: Float = if (isFocussed) {
-                if (targettedSound == soundTarget) {
-                    // Focussed on sound so full volume
-                    1f
+                // Calculate the new volume
+                val volume: Float = if (isFocussed) {
+                    if (targettedSound == orderedSoundTargets[i]) {
+                        // Focussed on sound so full volume
+                        1f
+                    } else {
+                        // Focussed on another sound so 0 volume
+                        0f
+                    }
                 } else {
-                    // Focussed on another sound so 0 volume
-                    0f
+                    // Volume relative to distance away (up to 80%)
+                    (0.8f - 0.8f * (orderedSoundTargets[i].degreesFromAim/secondaryAngle))
                 }
-            } else {
-                // Volume relative to distance away (up to 80%)
-                (0.8f - 0.8f * (soundTarget.degreesFromAim/secondaryAngle))
-            }
 
-            // Set the media player volume
-            soundTarget.mediaPlayer?.setVolume(volume, volume)
+                // Set the media player volume
+                setVolume(volume, volume)
+            }
         }
 
         // Set static effect volume
