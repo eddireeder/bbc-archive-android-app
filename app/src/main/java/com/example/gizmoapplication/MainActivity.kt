@@ -7,6 +7,7 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
+import android.media.MediaPlayer
 import android.media.SoundPool
 import android.os.CountDownTimer
 import android.os.VibrationEffect
@@ -30,8 +31,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     val primaryAngle: Float = 5f
     val secondaryAngle: Float = 50f
-    private lateinit var soundPool: SoundPool
     private lateinit var staticEffect: StaticEffect
+
+    private val maxMediaPlayers: Int = 5
+    private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
     var minAngleFromSound: Float = 180f
     private var targettedSound: SoundTarget? = null
@@ -71,20 +74,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // Handle unavailable sensor
             }
         }
-
-        // Initialise sound pool
-        SoundPool.Builder().let {
-            soundPool = it.build()
-        }
-        soundPool.setOnLoadCompleteListener(object: SoundPool.OnLoadCompleteListener {
-            override fun onLoadComplete(soundPool: SoundPool, soundID: Int, status: Int) {
-                for (soundTarget in soundTargets) {
-                    if (soundTarget.soundID == soundID) {
-                        soundTarget.hasLoaded = true
-                    }
-                }
-            }
-        })
 
         // Get sound targets
         updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
@@ -150,103 +139,113 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called on change of sensor data
      */
     override fun onSensorChanged(event: SensorEvent) {
-        // Retrieve value
-        val rotationVector: FloatArray = event.values
+        // Calculate the phone's aim vector
+        val aimVector: FloatArray = calculateAimVector(event.values)
 
+        // Update all sound targets with new degrees from aim
+        for (soundTarget in soundTargets) soundTarget.updateDegreesFromAim(aimVector)
+
+        // Retrieve ordered list of sound targets
+        val orderedSoundTargets: List<SoundTarget> = soundTargets.sortedBy {it.degreesFromAim}
+
+        // If we have a closest target
+        orderedSoundTargets[0]?.let { soundTarget ->
+
+            // Assign min angle
+            minAngleFromSound = soundTarget.degreesFromAim
+
+            if (soundTarget.degreesFromAim <= primaryAngle) {
+                // Ensure focussing on target
+                if (targettedSound != soundTarget) {
+                    startFocussing(soundTarget)
+                }
+            } else {
+                // If focussing, stop
+                if (targettedSound == soundTarget) {
+                    stopFocussing()
+                }
+            }
+        }
+
+        // Recycle media players first before allocating them
+        for (i in orderedSoundTargets.indices) {
+            if (
+                i + 1 > maxMediaPlayers ||
+                orderedSoundTargets[i].degreesFromAim > secondaryAngle
+            ) {
+                // Recycle media player if not null
+                orderedSoundTargets[i].mediaPlayer?.let {
+                    mediaPlayerPool.recyclePlayer(it)
+                    orderedSoundTargets[i].mediaPlayer = null
+                }
+            }
+        }
+
+        for (i in orderedSoundTargets.indices) {
+
+            // Find targets that have no media player but need one
+            if (
+                orderedSoundTargets[i].mediaPlayer === null &&
+                i + 1 <= maxMediaPlayers &&
+                orderedSoundTargets[i].degreesFromAim <= secondaryAngle
+            ) {
+                // If media player is available in the pool
+                mediaPlayerPool.requestPlayer()?.let {mediaPlayer ->
+
+                    // Assign to sound target
+                    orderedSoundTargets[i].mediaPlayer = mediaPlayer
+
+                    // Start playing sound resource
+                    resources.openRawResourceFd(orderedSoundTargets[i].resID)?.let { assetFileDescriptor ->
+                        mediaPlayer.run {
+                            setDataSource(assetFileDescriptor)
+                            prepareAsync()
+                        }
+                    }
+                }
+            }
+        }
+
+        // Calculate and set the volume for the sound targets with media players allocated
+        for (soundTarget in orderedSoundTargets.takeWhile { it.mediaPlayer !== null }) {
+
+            val volume: Float = if (isFocussed) {
+                if (targettedSound == soundTarget) {
+                    // Focussed on sound so full volume
+                    1f
+                } else {
+                    // Focussed on another sound so 0 volume
+                    0f
+                }
+            } else {
+                // Volume relative to distance away (up to 80%)
+                (0.8f - 0.8f * (soundTarget.degreesFromAim/secondaryAngle))
+            }
+
+            // Set the media player volume
+            soundTarget.mediaPlayer?.setVolume(volume, volume)
+        }
+
+        // Set static effect volume
+        val staticVolume: Float = if (minAngleFromSound < secondaryAngle) {
+            // Static volume relative to min angle (only down to 20%)
+            0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
+        } else {
+            1f
+        }
+        staticEffect.setVolume(staticVolume)
+    }
+
+    /**
+     * Compute the phone's aim direction vector in world coordinates
+     */
+    fun calculateAimVector(rotationVector: FloatArray): FloatArray {
         // Calculate rotation matrix
         var rotationMatrix: FloatArray = FloatArray(9)
         SensorManager.getRotationMatrixFromVector(rotationMatrix, rotationVector)
 
         // Apply rotation matrix to device Y vector (0, 1, 0) to get the aim direction
-        val aimVector: FloatArray = floatArrayOf(rotationMatrix[1], rotationMatrix[4], rotationMatrix[7])
-
-        // Reset the minimum angle
-        minAngleFromSound = 180f
-
-        // Record the sounds in earshot to display in logs
-        val inEarshot: MutableList<SoundTarget> = mutableListOf()
-
-        for (soundTarget in soundTargets) {
-
-            // If the sound hasn't loaded then don't continue with calculations
-            if (soundTarget.hasLoaded) {
-
-                // Get the angle between the device aim and the sound in degrees
-                val angleFromSound = soundTarget.getDegreesFrom(aimVector)
-
-                //Log.i("Angle from sound", angleFromSound.toString())
-
-                // Replace if new minimum
-                if (angleFromSound < minAngleFromSound) minAngleFromSound = angleFromSound
-
-                // If the aim is inside the secondary zone
-                if (angleFromSound <= secondaryAngle) {
-
-                    // Add to in earshot list
-                    inEarshot.add(soundTarget)
-
-                    // Calculate volume
-                    var volume: Float
-
-                    if (isFocussed) {
-                        if (targettedSound == soundTarget) {
-                            // Focussed on sound so full volume
-                            volume = 1.0f
-                        } else {
-                            // Focussed on another sound so no volume
-                            volume = 0.0f
-                        }
-                    } else {
-                        // Volume relative to distance away (up to 80%)
-                        volume = (0.8f - 0.8f * (angleFromSound / secondaryAngle))
-                    }
-
-                    // Ensure sound is playing and set the volume
-                    if (soundTarget.streamID == null) {
-                        soundTarget.streamID =
-                            soundPool.play(soundTarget.soundID, volume, volume, 1, -1, 1.0f)
-                    } else {
-                        soundTarget.streamID?.let {
-                            soundPool.setVolume(it, volume, volume)
-                        }
-                    }
-
-                    // If the aim is inside the primary zone
-                    if (angleFromSound <= primaryAngle) {
-                        // Start focussing if not already
-                        if (targettedSound == null) {
-                            startFocussing(soundTarget)
-                        }
-                    } else {
-                        // If focussing, stop
-                        if (targettedSound == soundTarget) {
-                            stopFocussing()
-                        }
-                    }
-                } else {
-                    // Ensure sound has stopped playing
-                    soundTarget.streamID?.let {
-                        soundPool.stop(it)
-                        soundTarget.streamID = null
-                    }
-                }
-            }
-        }
-        // Log sounds in earshot
-        var earshotLocations: String = ""
-        for (sound in inEarshot) {
-            earshotLocations += "${sound.location} "
-        }
-        Log.i("Audible", earshotLocations)
-
-        // Set static effect volume
-        val staticVolume: Float = if (minAngleFromSound < secondaryAngle) {
-            0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
-        } else {
-            1.0f
-        }
-
-        staticEffect.setVolume(staticVolume)
+        return floatArrayOf(rotationMatrix[1], rotationMatrix[4], rotationMatrix[7])
     }
 
     /**
@@ -348,11 +347,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     val resID: Int = resources.getIdentifier("sound_${location.split(".")[0]}", "raw", this.packageName)
                     if (resID == 0) continue
 
-                    // Start to load into sound pool
-                    val soundID: Int = soundPool.load(this, resID, 1)
-
                     // Create sound target object and add to list
-                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber, soundID))
+                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber, resID))
                 }
 
                 // Update UI

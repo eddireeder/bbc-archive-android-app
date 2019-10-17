@@ -1,5 +1,6 @@
 package com.example.gizmoapplication
 
+import android.media.MediaPlayer
 import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.pow
@@ -13,11 +14,19 @@ class SoundTarget (
     val cdNumber: String,
     val cdName: String,
     val trackNumber: Int,
-    val soundID: Int
+    val resID: Int
 ) {
 
-    var hasLoaded: Boolean = false
-    var streamID: Int? = null
+    var degreesFromAim: Float = 180f
+    var mediaPlayer: MediaPlayer? = null
+
+    /**
+     * Update the current angle from the aim direction in degrees
+     */
+    fun updateDegreesFromAim(aimVector: FloatArray) {
+        // Update variable
+        degreesFromAim = getDegreesFrom(aimVector)
+    }
 
     /**
      * Get the angle between the given vector and this sound in degrees
