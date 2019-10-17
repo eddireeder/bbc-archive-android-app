@@ -18,7 +18,7 @@ class SoundTarget (
 ) {
 
     var degreesFromAim: Float = 180f
-    var mediaPlayer: MediaPlayer? = null
+    var mediaPlayerWithState: MediaPlayerWithState? = null
 
     /**
      * Update the current angle from the aim direction in degrees

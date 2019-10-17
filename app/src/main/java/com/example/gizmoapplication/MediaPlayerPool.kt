@@ -4,37 +4,53 @@ import android.media.MediaPlayer
 
 class MediaPlayerPool(maxStreams: Int) {
 
-    private val mediaPlayerPool = mutableListOf<MediaPlayer>().also {
+    private val mediaPlayerPool = mutableListOf<MediaPlayerWithState>().also {
         for (i in 0..maxStreams) it += buildPlayer()
     }
 
     /**
      * Build and return a media player
      */
-    private fun buildPlayer() = MediaPlayer().apply {
-        setOnPreparedListener {
-            // Start with 0 volume
-            setVolume(0f, 0f)
-            start()
-            isLooping = true
+    private fun buildPlayer() = MediaPlayerWithState(
+        MediaPlayer().apply {
+            setOnPreparedListener {
+                // Record state
+                setPrepared(it, true)
+                // Start with 0 volume
+                setVolume(0f, 0f)
+                start()
+                isLooping = true
+            }
+        }, false
+    )
+
+    /**
+     * Searches for MediaPlayerWithState using MediaPlayer and sets its state
+     */
+    fun setPrepared(mediaPlayer: MediaPlayer, prepared: Boolean) {
+        for (mediaPlayerWithState in mediaPlayerPool) {
+            if (mediaPlayerWithState.mediaPlayer == mediaPlayer) {
+                mediaPlayerWithState.prepared = prepared
+                break
+            }
         }
-        setOnCompletionListener { recyclePlayer(it) }
     }
 
     /**
-     * Returns a media player if one is available
+     * Returns a media player (with state) if one is available
      */
-    fun requestPlayer(): MediaPlayer? {
+    fun requestPlayer(): MediaPlayerWithState? {
         return if (mediaPlayerPool.isNotEmpty()) {
             mediaPlayerPool.removeAt(0)
         } else null
     }
 
     /**
-     * Recycle a media player for reuse
+     * Recycle a media player (with state) for reuse
      */
-    fun recyclePlayer(mediaPlayer: MediaPlayer) {
-        mediaPlayer.reset()
-        mediaPlayerPool += mediaPlayer
+    fun recyclePlayer(mediaPlayerWithState: MediaPlayerWithState) {
+        mediaPlayerWithState.prepared = false
+        mediaPlayerWithState.mediaPlayer.reset()
+        mediaPlayerPool += mediaPlayerWithState
     }
 }

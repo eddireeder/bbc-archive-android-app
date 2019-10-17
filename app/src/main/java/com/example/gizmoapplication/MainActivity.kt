@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     val secondaryAngle: Float = 30f
     private lateinit var staticEffect: StaticEffect
 
-    private val maxMediaPlayers: Int = 3
+    private val maxMediaPlayers: Int = 1
     private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
     var minAngleFromSound: Float = 180f
@@ -154,10 +154,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 i + 1 > maxMediaPlayers ||
                 orderedSoundTargets[i].degreesFromAim > secondaryAngle
             ) {
-                // Recycle media player if not null
-                orderedSoundTargets[i].mediaPlayer?.let {
-                    mediaPlayerPool.recyclePlayer(it)
-                    orderedSoundTargets[i].mediaPlayer = null
+                // Recycle media player if not null and the player has been prepared
+                orderedSoundTargets[i].mediaPlayerWithState?.let {
+                    if (it.prepared) {
+                        mediaPlayerPool.recyclePlayer(it)
+                        orderedSoundTargets[i].mediaPlayerWithState = null
+                    }
                 }
             }
         }
@@ -184,19 +186,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             // Find targets that have no media player but need one
             if (
-                orderedSoundTargets[i].mediaPlayer === null &&
+                orderedSoundTargets[i].mediaPlayerWithState === null &&
                 i + 1 <= maxMediaPlayers &&
                 orderedSoundTargets[i].degreesFromAim <= secondaryAngle
             ) {
                 // If media player is available in the pool
-                mediaPlayerPool.requestPlayer()?.let {mediaPlayer ->
+                mediaPlayerPool.requestPlayer()?.let {mediaPlayerWithState ->
 
                     // Assign to sound target
-                    orderedSoundTargets[i].mediaPlayer = mediaPlayer
+                    orderedSoundTargets[i].mediaPlayerWithState = mediaPlayerWithState
 
                     // Start playing sound resource
                     resources.openRawResourceFd(orderedSoundTargets[i].resID)?.let { assetFileDescriptor ->
-                        mediaPlayer.run {
+                        mediaPlayerWithState.mediaPlayer.run {
                             setDataSource(assetFileDescriptor)
                             prepareAsync()
                         }
@@ -205,7 +207,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
 
             // If sound target has media player
-            orderedSoundTargets[i].mediaPlayer?.apply {
+            orderedSoundTargets[i].mediaPlayerWithState?.mediaPlayer?.apply {
 
                 // Calculate the new volume
                 val volume: Float = if (isFocussed) {
