@@ -107,7 +107,7 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
         // Calculate the delay in milliseconds
         val delay: Float = (System.nanoTime() - frameTimeNanos)*0.000001f
-        Log.i("Frame delay", ((System.nanoTime() - frameTimeNanos)*0.000001f).toString())
+        Log.i("Frame delay", delay.toString())
 
         // Re-register choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
