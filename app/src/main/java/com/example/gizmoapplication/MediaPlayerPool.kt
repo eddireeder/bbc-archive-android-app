@@ -1,28 +1,39 @@
 package com.example.gizmoapplication
 
 import android.media.MediaPlayer
+import android.util.Log
 
 class MediaPlayerPool(maxStreams: Int) {
 
     private val mediaPlayerPool = mutableListOf<MediaPlayerWithState>().also {
-        for (i in 0..maxStreams) it += buildPlayer()
+        for (i in 0 until maxStreams) it += MediaPlayerWithState(MediaPlayer(), false)
+    }
+
+    init {
+        for (mediaPlayerWithState in mediaPlayerPool) {
+            mediaPlayerWithState.mediaPlayer.setOnPreparedListener {
+                Log.i("Media", "Player prepared")
+                mediaPlayerWithState.prepared = true
+                it.setVolume(0f, 0f)
+                it.start()
+                it.isLooping = true
+            }
+        }
     }
 
     /**
      * Build and return a media player
      */
-    private fun buildPlayer() = MediaPlayerWithState(
-        MediaPlayer().apply {
-            setOnPreparedListener {
-                // Record state
-                setPrepared(it, true)
-                // Start with 0 volume
-                setVolume(0f, 0f)
-                start()
-                isLooping = true
-            }
-        }, false
-    )
+    private fun buildPlayer() = MediaPlayer().apply {
+        setOnPreparedListener {
+            // Record state
+            setPrepared(it, true)
+            // Start with 0 volume
+            setVolume(0f, 0f)
+            start()
+            isLooping = true
+        }
+    }
 
     /**
      * Searches for MediaPlayerWithState using MediaPlayer and sets its state

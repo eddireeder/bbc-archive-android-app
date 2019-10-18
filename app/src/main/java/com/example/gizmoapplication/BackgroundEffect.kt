@@ -3,7 +3,7 @@ package com.example.gizmoapplication
 import android.content.Context
 import android.media.SoundPool
 
-class StaticEffect (val context: Context) {
+class BackgroundEffect (val context: Context) {
 
     private val soundPool: SoundPool
     private var streamID: Int? = null

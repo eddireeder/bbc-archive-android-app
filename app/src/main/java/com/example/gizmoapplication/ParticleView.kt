@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.AttributeSet
+import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceView
 import androidx.core.content.ContextCompat
@@ -28,7 +29,7 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
     private var centrePosition: FloatArray? = null
-    private var currentFrameTimeNanos: Long = System.nanoTime()
+    private var previousFrameTimeNanos: Long = System.nanoTime()
 
     private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
     private var particleHandler: Handler? = null
@@ -58,7 +59,8 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         particleHandler = object : Handler(particleHandlerThread.looper) {
             // Executed in the non-UI/background thread
             override fun handleMessage(msg: Message) {
-                update()
+                val timeDeltaNanos = msg.obj as Long
+                update(timeDeltaNanos)
                 draw()
             }
         }
@@ -90,14 +92,27 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     }
 
     /**
-     * Given time in nano seconds at last VSYNC
+     * Given time in nano seconds that frame started rendering
      */
     override fun doFrame(frameTimeNanos: Long) {
-        // Update with latest frameTime
-        currentFrameTimeNanos = frameTimeNanos
 
-        // Send empty message to handler thread
-        particleHandler?.sendEmptyMessage(1)
+        // Calculate the delay in milliseconds
+        val delay: Float = (System.nanoTime() - frameTimeNanos)*0.000001f
+
+        Log.i("Frame delay", ((System.nanoTime() - frameTimeNanos)*0.000001f).toString())
+
+        // TODO: Skip a frame if delay is greater than ~10-15 ms
+
+        // Calculate difference between last frame and current frame
+        val timeDeltaNanos: Long = frameTimeNanos - previousFrameTimeNanos
+
+        // Update previous frame time
+        previousFrameTimeNanos = frameTimeNanos
+
+        // Send message to handler thread with time delta
+        val message = Message()
+        message.obj = timeDeltaNanos
+        particleHandler?.sendMessage(message)
 
         // Reregister choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
@@ -106,12 +121,12 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     /**
      * Update the particle positions and velocities
      */
-    fun update() {
+    fun update(timeDeltaNanos: Long) {
         // Start updating once we have the centre position
         if (centrePosition == null) return
 
         // Calculate delta time in seconds
-        val deltaTime: Float = (System.nanoTime() - currentFrameTimeNanos)*0.000000001f
+        val deltaTime: Float = timeDeltaNanos*0.000000001f
 
         // Calculate the current centre force
         val mainActivity: MainActivity = context as MainActivity

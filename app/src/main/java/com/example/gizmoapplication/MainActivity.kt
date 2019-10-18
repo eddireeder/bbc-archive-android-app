@@ -7,8 +7,6 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.hardware.SensorManager
-import android.media.MediaPlayer
-import android.media.SoundPool
 import android.os.CountDownTimer
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -31,7 +29,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     val primaryAngle: Float = 5f
     val secondaryAngle: Float = 30f
-    private lateinit var staticEffect: StaticEffect
+    private lateinit var backgroundEffect: BackgroundEffect
 
     private val maxMediaPlayers: Int = 1
     private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
@@ -71,7 +69,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
 
             if (rotationVectorSensor == null) {
-                // Handle unavailable sensor
+                // TODO: Handle unavailable sensor
             }
         }
 
@@ -79,7 +77,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
 
         // Initialise static background sound and start playing
-        staticEffect = StaticEffect(this)
+        backgroundEffect = BackgroundEffect(this)
 
         // Initialise the focus timer
         focusTimer = object: CountDownTimer(5000, 5000) {
@@ -103,7 +101,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // Resume the static effect
-        staticEffect.resume()
+        backgroundEffect.resume()
     }
 
     /**
@@ -116,7 +114,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         sensorManager.unregisterListener(this)
 
         // Pause the static effect
-        staticEffect.pause()
+        backgroundEffect.pause()
     }
 
     /**
@@ -157,8 +155,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // Recycle media player if not null and the player has been prepared
                 orderedSoundTargets[i].mediaPlayerWithState?.let {
                     if (it.prepared) {
+                        Log.i("Media", "Recycling prepared player")
                         mediaPlayerPool.recyclePlayer(it)
                         orderedSoundTargets[i].mediaPlayerWithState = null
+                        Log.i("Media", "Player recycled")
+                    } else {
+                        Log.i("Media", "Player not prepared, not recycling")
                     }
                 }
             }
@@ -193,6 +195,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // If media player is available in the pool
                 mediaPlayerPool.requestPlayer()?.let {mediaPlayerWithState ->
 
+                    Log.i("Media", "Player requested")
+
                     // Assign to sound target
                     orderedSoundTargets[i].mediaPlayerWithState = mediaPlayerWithState
 
@@ -200,6 +204,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     resources.openRawResourceFd(orderedSoundTargets[i].resID)?.let { assetFileDescriptor ->
                         mediaPlayerWithState.mediaPlayer.run {
                             setDataSource(assetFileDescriptor)
+                            Log.i("Media", "Starting prepare async")
                             prepareAsync()
                         }
                     }
@@ -228,14 +233,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         }
 
-        // Set static effect volume
-        val staticVolume: Float = if (minAngleFromSound < secondaryAngle) {
-            // Static volume relative to min angle (only down to 20%)
-            0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
-        } else {
-            1f
-        }
-        staticEffect.setVolume(staticVolume)
+        // Set the background volume
+        backgroundEffect.setVolume(calculateBackgroundVolume(minAngleFromSound, secondaryAngle))
     }
 
     /**
@@ -248,6 +247,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Apply rotation matrix to device Y vector (0, 1, 0) to get the aim direction
         return floatArrayOf(rotationMatrix[1], rotationMatrix[4], rotationMatrix[7])
+    }
+
+    /**
+     * The logic for controlling the background volume
+     */
+    fun calculateBackgroundVolume(minAngleFromSound: Float, secondaryAngle: Float): Float {
+        if (minAngleFromSound < secondaryAngle) {
+            return 0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
+        } else {
+            return 1f
+        }
     }
 
     /**
@@ -280,7 +290,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
             text = ""
         }
-        staticEffect.resume()
+        backgroundEffect.resume()
     }
 
     /**
@@ -303,7 +313,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 text = "${it.cdNumber} ${it.cdName} - ${it.trackNumber}"
             }
         }
-        staticEffect.pause()
+        backgroundEffect.pause()
     }
 
     /**
