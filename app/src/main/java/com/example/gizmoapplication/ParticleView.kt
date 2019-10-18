@@ -21,15 +21,20 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int): super(context, attrs, defStyleAttr)
 
     private val backgroundColour: Int = ContextCompat.getColor(context, R.color.colorBackground)
-    private val paint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 25
+    private val numParticles: Int = 2500
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
 
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
     private var centrePosition: FloatArray? = null
-    private var previousFrameTimeNanos: Long = System.nanoTime()
+
+    private val frameTimesNanos: MutableList<Long> = mutableListOf<Long>(System.nanoTime())
+    private val frameTimesMaxSize: Int = 50
+    private val maximumFrameDelay: Int = 10
+    private var fps: Int = 0
 
     private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
     private var particleHandler: Handler? = null
@@ -38,10 +43,14 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Register choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
 
+        // Format text
+        textPaint.color = Color.WHITE
+        textPaint.textSize = 50f
+
         // Format the points
-        paint.color = Color.WHITE
-        paint.strokeWidth = particleRadius
-        paint.strokeCap = Paint.Cap.ROUND
+        particlePaint.color = Color.WHITE
+        particlePaint.strokeWidth = particleRadius
+        particlePaint.strokeCap = Paint.Cap.ROUND
 
         // Initialise particles at (0, 0) with velocity of random distance and max speed
         for (i in 1..particleArray.size) {
@@ -98,24 +107,29 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
         // Calculate the delay in milliseconds
         val delay: Float = (System.nanoTime() - frameTimeNanos)*0.000001f
-
         Log.i("Frame delay", ((System.nanoTime() - frameTimeNanos)*0.000001f).toString())
 
-        // TODO: Skip a frame if delay is greater than ~10-15 ms
+        // Re-register choreographer frame callback
+        Choreographer.getInstance().postFrameCallback(this)
+
+        // Skip the frame if the delay meets a threshold
+        if (delay > maximumFrameDelay) return
 
         // Calculate difference between last frame and current frame
-        val timeDeltaNanos: Long = frameTimeNanos - previousFrameTimeNanos
+        val timeDeltaNanos: Long = frameTimeNanos - frameTimesNanos.last()
 
-        // Update previous frame time
-        previousFrameTimeNanos = frameTimeNanos
+        // Store latest frame time
+        frameTimesNanos.add(frameTimeNanos)
 
         // Send message to handler thread with time delta
         val message = Message()
         message.obj = timeDeltaNanos
         particleHandler?.sendMessage(message)
 
-        // Reregister choreographer frame callback
-        Choreographer.getInstance().postFrameCallback(this)
+        // Calculate new FPS
+        val difference: Float = (frameTimeNanos - frameTimesNanos.first())*0.000000001f
+        if (frameTimesNanos.size > frameTimesMaxSize) frameTimesNanos.removeAt(0)
+        fps = if (difference > 0) (frameTimesNanos.size/difference).toInt() else 0
     }
 
     /**
@@ -207,7 +221,10 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
             canvas.drawColor(backgroundColour, PorterDuff.Mode.SRC_OVER)
 
             // Draw a point for each particle
-            canvas.drawPoints(pointPositions, paint)
+            canvas.drawPoints(pointPositions, particlePaint)
+
+            // Draw current FPS
+            canvas.drawText(fps.toString(), 20f, 60f, textPaint)
 
             // Post canvas to surface
             it.unlockCanvasAndPost(canvas)
