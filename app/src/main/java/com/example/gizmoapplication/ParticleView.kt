@@ -24,7 +24,7 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 2500
+    private val numParticles: Int = 100
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
 
