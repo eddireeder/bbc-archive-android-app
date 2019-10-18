@@ -31,9 +31,11 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
     private var centrePosition: FloatArray? = null
 
-    private val frameTimesNanos: MutableList<Long> = mutableListOf<Long>(System.nanoTime())
-    private val frameTimesMaxSize: Int = 50
-    private val maximumFrameDelay: Int = 10
+    private var previousFrameTimeNanos: Long = System.nanoTime()
+
+    private val fpsTimesNanos: MutableList<Long> = mutableListOf<Long>(System.nanoTime())
+    private val fpsTimesMaxSize: Int = 50
+    private val maximumFrameDelay: Int = 15
     private var fps: Int = 0
 
     private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
@@ -66,10 +68,39 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Initialise handler thread
         particleHandlerThread.start()
         particleHandler = object : Handler(particleHandlerThread.looper) {
+
             // Executed in the non-UI/background thread
             override fun handleMessage(msg: Message) {
-                val timeDeltaNanos = msg.obj as Long
+
+                // Retrieve choreographer frame time from message
+                val frameTimeNanos = msg.obj as Long
+
+                // Get current time in nano seconds
+                val currentTimeNanos = System.nanoTime()
+
+                // Calculate the delay in milliseconds
+                val delay: Float = (currentTimeNanos - frameTimeNanos)*0.000001f
+                Log.i("Frame delay", delay.toString())
+
+                // Skip the frame if the delay meets a threshold
+                if (delay > maximumFrameDelay) return
+
+                // Calculate difference between previous frame and current frame
+                val timeDeltaNanos: Long = frameTimeNanos - previousFrameTimeNanos
+
+                // Update previous frame time as current
+                previousFrameTimeNanos = frameTimeNanos
+
+                // Update FPS counter (using device clock though)
+                fpsTimesNanos.add(currentTimeNanos)
+                val difference: Float = (currentTimeNanos - fpsTimesNanos.first())*0.000000001f
+                if (fpsTimesNanos.size > fpsTimesMaxSize) fpsTimesNanos.removeAt(0)
+                fps = if (difference > 0) (fpsTimesNanos.size/difference).toInt() else 0
+
+                // Update particles
                 update(timeDeltaNanos)
+
+                // Draw particles
                 draw()
             }
         }
@@ -105,31 +136,13 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      */
     override fun doFrame(frameTimeNanos: Long) {
 
-        // Calculate the delay in milliseconds
-        val delay: Float = (System.nanoTime() - frameTimeNanos)*0.000001f
-        Log.i("Frame delay", delay.toString())
-
         // Re-register choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
 
-        // Skip the frame if the delay meets a threshold
-        if (delay > maximumFrameDelay) return
-
-        // Calculate difference between last frame and current frame
-        val timeDeltaNanos: Long = frameTimeNanos - frameTimesNanos.last()
-
-        // Store latest frame time
-        frameTimesNanos.add(frameTimeNanos)
-
         // Send message to handler thread with time delta
         val message = Message()
-        message.obj = timeDeltaNanos
+        message.obj = frameTimeNanos
         particleHandler?.sendMessage(message)
-
-        // Calculate new FPS
-        val difference: Float = (frameTimeNanos - frameTimesNanos.first())*0.000000001f
-        if (frameTimesNanos.size > frameTimesMaxSize) frameTimesNanos.removeAt(0)
-        fps = if (difference > 0) (frameTimesNanos.size/difference).toInt() else 0
     }
 
     /**
