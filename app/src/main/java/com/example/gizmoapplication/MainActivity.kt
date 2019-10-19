@@ -5,11 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
 import android.hardware.SensorManager
-import android.os.CountDownTimer
-import android.os.VibrationEffect
-import android.os.Vibrator
+import android.os.*
 import android.util.Log
 import android.view.Window
 import android.view.WindowManager
@@ -31,14 +28,17 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     val secondaryAngle: Float = 30f
     private lateinit var backgroundEffect: BackgroundEffect
 
-    private val maxMediaPlayers: Int = 1
+    private val maxMediaPlayers: Int = 2
     private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
     var minAngleFromSound: Float = 180f
+
     private var targettedSound: SoundTarget? = null
     private var isFocussed: Boolean = false
     private lateinit var focusTimer: CountDownTimer
     private lateinit var vibrator: Vibrator
+    private val focusTimerHandler: Handler = Handler()
+    private lateinit var focusTimerRunnable: Runnable
 
     /**
      * Called on creation of Activity
@@ -87,6 +87,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Initialise vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+
+        // Initialise focus timer
+        focusTimerRunnable = object: Runnable() {
+            override fun run() {
+
+            }
+        }
     }
 
     /**
