@@ -7,10 +7,15 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.hardware.SensorManager
 import android.os.*
+import android.text.Html
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.Window
 import android.view.WindowManager
 import android.widget.TextView
+import androidx.core.os.postDelayed
 import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
@@ -33,12 +38,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     var minAngleFromSound: Float = 180f
 
+    private val timeToFocus: Float = 5f
     private var targettedSound: SoundTarget? = null
     private var isFocussed: Boolean = false
-    private lateinit var focusTimer: CountDownTimer
     private lateinit var vibrator: Vibrator
+
     private val focusTimerHandler: Handler = Handler()
     private lateinit var focusTimerRunnable: Runnable
+    private var characterIndicesToDisplay: MutableList<Int> = mutableListOf()
+    private var focusCharacterDelay: Float = 0f
+
+    private lateinit var textView: TextView
+    private lateinit var descriptionTextView: TextView
+    private lateinit var categoryTextView: TextView
+    private lateinit var trackInfoTextView: TextView
+
+    private lateinit var descriptionSpannable: SpannableString
+    private lateinit var categorySpannable: SpannableString
+    private lateinit var trackInfoSpannable: SpannableString
 
     /**
      * Called on creation of Activity
@@ -79,19 +96,59 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Initialise static background sound and start playing
         backgroundEffect = BackgroundEffect(this)
 
-        // Initialise the focus timer
-        focusTimer = object: CountDownTimer(5000, 5000) {
-            override fun onTick(millisUntilFinished: Long) {}
-            override fun onFinish() = onFocussed()
-        }
-
         // Initialise vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
-        // Initialise focus timer
-        focusTimerRunnable = object: Runnable() {
-            override fun run() {
+        // Retrieve text views
+        descriptionTextView = findViewById<TextView>(R.id.description)
+        categoryTextView = findViewById<TextView>(R.id.category)
+        trackInfoTextView = findViewById<TextView>(R.id.trackInfo)
+        textView = findViewById<TextView>(R.id.textView)
 
+        // Initialise focus timer
+        focusTimerRunnable = object: Runnable {
+            override fun run() {
+                // Select a random character to show
+                val characterIndex: Int = characterIndicesToDisplay.removeAt((characterIndicesToDisplay.indices).random())
+
+                if (characterIndex < descriptionSpannable.length) {
+                    descriptionSpannable.setSpan(
+                        ForegroundColorSpan(resources.getColor(R.color.colorText, null)),
+                        characterIndex, (characterIndex + 1),
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                } else if (characterIndex < descriptionSpannable.length + categorySpannable.length) {
+                    val index: Int = characterIndex - descriptionSpannable.length
+                    categorySpannable.setSpan(
+                        ForegroundColorSpan(resources.getColor(R.color.colorText, null)),
+                        index, (index + 1),
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                } else {
+                    val index: Int = characterIndex - descriptionSpannable.length - categorySpannable.length
+                    trackInfoSpannable.setSpan(
+                        ForegroundColorSpan(resources.getColor(R.color.colorText, null)),
+                        index, (index + 1),
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+
+                // Update text views
+                descriptionTextView.text = descriptionSpannable
+                categoryTextView.text = categorySpannable
+                trackInfoTextView.text = trackInfoSpannable
+
+                // If there are still characters to display
+                if (characterIndicesToDisplay.size > 0) {
+
+                    // Set runnable to rerun after delay
+                    focusTimerHandler.postDelayed(this, (focusCharacterDelay * 1000f).toLong())
+
+                } else {
+
+                    // Finished focussing
+                    onFocussed()
+                }
             }
         }
     }
@@ -272,10 +329,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     fun startFocussing(soundTarget: SoundTarget) {
         targettedSound = soundTarget
-        focusTimer.start()
-        val textView = findViewById<TextView>(R.id.textView).apply {
-            text = getString(R.string.focussing)
-        }
+
+        // Initialise spannable strings
+        descriptionSpannable = SpannableString(soundTarget.description)
+        categorySpannable = SpannableString(soundTarget.category)
+        trackInfoSpannable = SpannableString("${soundTarget.cdNumber} ${soundTarget.cdName} - ${soundTarget.trackNumber}")
+
+        // Generate a list of indices from the lengths of text
+        val totalNumCharacters: Int = descriptionSpannable.length + categorySpannable.length + trackInfoSpannable.length
+        characterIndicesToDisplay = (0 until totalNumCharacters).toMutableList()
+
+        // Calculate the delay between each character
+        focusCharacterDelay = timeToFocus/totalNumCharacters
+
+        // Start displaying characters
+        focusTimerHandler.postDelayed(focusTimerRunnable, 0)
     }
 
     /**
@@ -284,19 +352,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     fun stopFocussing() {
         isFocussed = false
         targettedSound = null
-        focusTimer.cancel()
-        val textView = findViewById<TextView>(R.id.textView).apply {
-            text = ""
-        }
-        val descriptionTextView = findViewById<TextView>(R.id.description).apply {
-            text = ""
-        }
-        val categoryTextView = findViewById<TextView>(R.id.category).apply {
-            text = ""
-        }
-        val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
-            text = ""
-        }
+
+        // Update character indices to display as empty
+        characterIndicesToDisplay.clear()
+
+        // Prevent any callbacks that may exist
+        focusTimerHandler.removeCallbacks(focusTimerRunnable)
+
+        // Update text views
+        textView.text = ""
+        descriptionTextView.text = ""
+        categoryTextView.text = ""
+        trackInfoTextView.text = ""
+
+        // Resume background effect
         backgroundEffect.resume()
     }
 
@@ -305,21 +374,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     fun onFocussed() {
         isFocussed = true
+
+        // Vibrate the phone
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-        val textView = findViewById<TextView>(R.id.textView).apply {
-            text = getString(R.string.focussed)
-        }
-        targettedSound?.let {
-            val descriptionTextView = findViewById<TextView>(R.id.description).apply {
-                text = it.description
-            }
-            val categoryTextView = findViewById<TextView>(R.id.category).apply {
-                text = it.category
-            }
-            val trackInfoTextView = findViewById<TextView>(R.id.trackInfo).apply {
-                text = "${it.cdNumber} ${it.cdName} - ${it.trackNumber}"
-            }
-        }
+
+        // Pause the background effect
         backgroundEffect.pause()
     }
 

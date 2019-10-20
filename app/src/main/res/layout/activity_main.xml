@@ -35,7 +35,7 @@
         android:layout_marginBottom="8dp"
         android:fontFamily="@font/berthold_akzidenz_grotesk_be_regular"
         android:textAlignment="center"
-        android:textColor="@color/colorText"
+        android:textColor="@android:color/transparent"
         app:layout_constraintBottom_toTopOf="@+id/trackInfo"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
@@ -47,7 +47,7 @@
         android:layout_marginBottom="8dp"
         android:fontFamily="@font/berthold_akzidenz_grotesk_be_medium"
         android:textAlignment="center"
-        android:textColor="@color/colorText"
+        android:textColor="@android:color/transparent"
         android:textSize="16sp"
         app:layout_constraintBottom_toTopOf="@+id/category"
         app:layout_constraintEnd_toEndOf="parent"
@@ -60,7 +60,7 @@
         android:layout_marginBottom="64dp"
         android:fontFamily="@font/berthold_akzidenz_grotesk_be_italic"
         android:textAlignment="center"
-        android:textColor="@color/colorText"
+        android:textColor="@android:color/transparent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
