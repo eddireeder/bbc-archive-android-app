@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     val primaryAngle: Float = 5f
-    val secondaryAngle: Float = 50f
+    val secondaryAngle: Float = 30f
     private lateinit var backgroundEffect: BackgroundEffect
 
     private val maxMediaPlayers: Int = 4
@@ -110,46 +110,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Initialise focus timer
         focusTimerRunnable = object: Runnable {
-            override fun run() {
-
-                // Select a random character to show
-                Log.d("FOCUS - Number of characters left - start", characterIndicesToDisplay.size.toString())
-                val characterIndex: Int = characterIndicesToDisplay.removeAt((characterIndicesToDisplay.indices).random())
-
-                // Set the character to display in the spannable
-                metaSpannable.setSpan(
-                    ForegroundColorSpan(resources.getColor(R.color.colorText, null)),
-                    characterIndex, (characterIndex + 1),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
-                // Update text views
-                descriptionTextView.text = metaSpannable.subSequence(
-                    0,
-                    descriptionText.length
-                )
-                categoryTextView.text = metaSpannable.subSequence(
-                    descriptionText.length,
-                    descriptionText.length + categoryText.length
-                )
-                trackInfoTextView.text = metaSpannable.subSequence(
-                    descriptionText.length + categoryText.length,
-                    metaSpannable.lastIndex
-                )
-
-                // If there are still characters to display
-                Log.d("FOCUS - Number of characters left - end", characterIndicesToDisplay.size.toString())
-                if (characterIndicesToDisplay.size > 0) {
-
-                    // Set runnable to rerun after delay
-                    focusTimerHandler.postDelayed(this, (focusCharacterDelay * 1000f).toLong())
-
-                } else {
-
-                    // Finished focussing
-                    onFocussed()
-                }
-            }
+            override fun run() = focusTimerUpdate()
         }
     }
 
@@ -201,6 +162,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called on change of sensor data
      */
     override fun onSensorChanged(event: SensorEvent) {
+        Log.d("Sensor values", "${event.values[0].toString()} ${event.values[1].toString()} ${event.values[2].toString()}")
+
         // Calculate the phone's aim vector
         val aimVector: FloatArray = calculateAimVector(event.values)
 
@@ -234,8 +197,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             // If the closest target
             if (i === 0) {
+
                 // Assign min angle
                 minAngleFromSound = orderedSoundTargets[i].degreesFromAim
+                Log.d("Minimum angle from sound", minAngleFromSound.toString())
 
                 if (orderedSoundTargets[i].degreesFromAim <= primaryAngle) {
                     // Ensure focussing on target
@@ -331,7 +296,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Start focussing on the given sound
      */
     fun startFocussing(soundTarget: SoundTarget) {
-        Log.d("FOCUS", "startFocussing")
         focusTarget = soundTarget
 
         // Initialise spannable strings
@@ -355,8 +319,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Stop focussing on any sounds
      */
     fun stopFocussing() {
-        Log.d("FOCUS", "stopFocussing")
-
         isFocussed = false
         focusTarget = null
 
@@ -376,11 +338,51 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     /**
+     * The update logic that shows one character of meta data
+     */
+    fun focusTimerUpdate() {
+
+        // Select a random character to show
+        val characterIndex: Int = characterIndicesToDisplay.removeAt((characterIndicesToDisplay.indices).random())
+
+        // Set the character to display in the spannable
+        metaSpannable.setSpan(
+            ForegroundColorSpan(resources.getColor(R.color.colorText, null)),
+            characterIndex, (characterIndex + 1),
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // Update text views
+        descriptionTextView.text = metaSpannable.subSequence(
+            0,
+            descriptionText.length
+        )
+        categoryTextView.text = metaSpannable.subSequence(
+            descriptionText.length,
+            descriptionText.length + categoryText.length
+        )
+        trackInfoTextView.text = metaSpannable.subSequence(
+            descriptionText.length + categoryText.length,
+            metaSpannable.lastIndex
+        )
+
+        // If there are still characters to display
+        if (characterIndicesToDisplay.size > 0) {
+
+            // Set runnable to rerun after delay
+            focusTimerHandler.postDelayed(focusTimerRunnable, (focusCharacterDelay * 1000f).toLong())
+
+        } else {
+
+            // Finished focussing
+            onFocussed()
+        }
+    }
+
+    /**
      * Called once a sound has been focused on
      */
     fun onFocussed() {
-        Log.d("FOCUS", "onFocussed")
-
         isFocussed = true
 
         // Vibrate the phone
