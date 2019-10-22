@@ -20,13 +20,27 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     constructor(context: Context, attrs: AttributeSet): super(context, attrs)
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int): super(context, attrs, defStyleAttr)
 
+    companion object {
+        private const val INITIALISING: Int = 0
+        private const val PAUSING: Int = 1
+        private const val PAUSED: Int = 2
+        private const val PLAYING: Int = 3
+    }
+
+    var state: Int = INITIALISING
+    private val distanceOutside: Float = 50f
+    private val exitForce: Float = 500f
+
     private val backgroundColour: Int = ContextCompat.getColor(context, R.color.colorBackground)
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 100
+    private val numParticles: Int = 50
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
+    private val randomForceConstant: Float = 250f
+    private val centreForceLowerLimit: Float = 500f
+    private val centreForceUpperLimit: Float = 2000f
 
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
     private var centrePosition: FloatArray? = null
@@ -54,17 +68,6 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         particlePaint.strokeWidth = particleRadius
         particlePaint.strokeCap = Paint.Cap.ROUND
 
-        // Initialise particles at (0, 0) with velocity of random distance and max speed
-        for (i in 1..particleArray.size) {
-            val velocity: FloatArray = floatArrayOf(Random.nextFloat(), Random.nextFloat())
-            val magnitude: Float = sqrt(velocity[0].pow(2) + velocity[1].pow(2))
-            val velocityWithMaxSpeed: FloatArray = floatArrayOf(
-                (velocity[0]/magnitude)*maxSpeed,
-                (velocity[1]/magnitude)*maxSpeed
-            )
-            particleArray[i - 1] = Particle(floatArrayOf(0f, 0f), velocityWithMaxSpeed)
-        }
-
         // Initialise handler thread
         particleHandlerThread.start()
         particleHandler = object : Handler(particleHandlerThread.looper) {
@@ -80,13 +83,12 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
                 // Calculate the delay in milliseconds
                 val delay: Float = (currentTimeNanos - frameTimeNanos)*0.000001f
-                Log.i("Frame delay", delay.toString())
 
                 // Skip the frame if the delay meets a threshold
                 if (delay > maximumFrameDelay) return
 
                 // Calculate difference between previous frame and current frame
-                val timeDeltaNanos: Long = frameTimeNanos - previousFrameTimeNanos
+                val deltaTimeNanos: Long = frameTimeNanos - previousFrameTimeNanos
 
                 // Update previous frame time as current
                 previousFrameTimeNanos = frameTimeNanos
@@ -98,36 +100,69 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
                 fps = if (difference > 0) (fpsTimesNanos.size/difference).toInt() else 0
 
                 // Update particles
-                update(timeDeltaNanos)
+                update(deltaTimeNanos)
 
                 // Draw particles
                 draw()
             }
         }
+        Log.d("Startup", "Particle view set up")
     }
 
+    /**
+     * Called on initial layout of the view
+     */
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
 
         // Store the view's centre
         centrePosition = floatArrayOf(width/2f, height/2f)
 
-        // Place particles at random positions
-        for (particle in particleArray) {
-            particle?.let {
-                val initialPosition: FloatArray = floatArrayOf(
-                    (0..width).random().toFloat(),
-                    (0..height).random().toFloat()
+        // Initialise particles at random positions around the outside with random velocity and force
+        for (i in particleArray.indices) {
+
+            // Generate random velocity
+            val randomVelocityDirection: FloatArray = generateRandomUnitVector()
+            val randomVelocityWithMaxSpeed: FloatArray = floatArrayOf(
+                randomVelocityDirection[0]*maxSpeed,
+                randomVelocityDirection[1]*maxSpeed
+            )
+
+            // Generate random force
+            val randomForceDirection: FloatArray = generateRandomUnitVector()
+            val randomForce: FloatArray = floatArrayOf(
+                randomForceDirection[0]*randomForceConstant,
+                randomForceDirection[1]*randomForceConstant
+            )
+
+            // Generate random initial position
+            val heightAndSide: Float = Random.nextFloat()*(2*height)
+            val initialPosition: FloatArray = if (heightAndSide < height) {
+                floatArrayOf(
+                    -distanceOutside,
+                    heightAndSide
                 )
-                it.position = initialPosition
+            } else {
+                floatArrayOf(
+                    width + distanceOutside,
+                    heightAndSide - height
+                )
             }
+
+            // Initialise particle
+            particleArray[i] = Particle(initialPosition, randomVelocityWithMaxSpeed, randomForce)
         }
+
+        // Update view state from initialised to paused
+        state = PAUSED
     }
 
     /**
      * Called on initial layout and any screen size changes
      */
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+
+        // Update centre position
         centrePosition = floatArrayOf(w/2f, h/2f)
     }
 
@@ -148,19 +183,107 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     /**
      * Update the particle positions and velocities
      */
-    fun update(timeDeltaNanos: Long) {
-        // Start updating once we have the centre position
-        if (centrePosition == null) return
+    fun update(deltaTimeNanos: Long) {
+
+        // No need to update if paused or initialising
+        if (state == PAUSED || state == INITIALISING) return
 
         // Calculate delta time in seconds
-        val deltaTime: Float = timeDeltaNanos*0.000000001f
+        val deltaTime: Float = deltaTimeNanos*0.000000001f
 
-        // Calculate the current centre force
+        // Update particles for pausing
+        if (state == PAUSING) pausingUpdate(deltaTime)
+
+        // Update particles for playing
+        else if (state == PLAYING) playingUpdate(deltaTime)
+    }
+
+    /**
+     * Update view based on the state being PAUSING
+     */
+    fun pausingUpdate(deltaTime: Float) {
+
+        // Initialise boolean to know when view can pause
+        var readyToPause: Boolean = true
+
+        for (particle in particleArray) {
+            particle?.let particleBlock@{
+
+                // Check whether particle is outside the width of the screen
+                if (it.position[0] < -distanceOutside || it.position[0] > (width + distanceOutside)) return@particleBlock
+
+                // Check whether particle is outside the height of the screen
+                if (it.position[1] < -distanceOutside || it.position[1] > (height + distanceOutside)) return@particleBlock
+
+                // Not ready to pause as particle is still on screen
+                if (readyToPause) readyToPause = false
+
+                // Calculate vector to initial position/exit
+                val toExit: FloatArray = floatArrayOf(
+                    it.initialPosition[0] - it.position[0],
+                    it.initialPosition[1] - it.position[1]
+                )
+
+                // Calculate the magnitude
+                val toExitMagnitude: Float = sqrt(toExit[0].pow(2) + toExit[1].pow(2))
+
+                // Compute acceleration using exit force
+                val acceleration: FloatArray = floatArrayOf(
+                    (toExit[0]/toExitMagnitude)*exitForce,
+                    (toExit[1]/toExitMagnitude)*exitForce
+                )
+
+                // Compute the final velocity
+                val finalVelocity: FloatArray = floatArrayOf(
+                    it.velocity[0] + acceleration[0]*deltaTime,
+                    it.velocity[1] + acceleration[1]*deltaTime
+                )
+
+                // Limit magnitude to max speed
+                val finalVelocityMagnitude = sqrt(finalVelocity[0].pow(2) + finalVelocity[1].pow(2))
+
+                if (finalVelocityMagnitude > maxSpeed) {
+                    finalVelocity[0] = (finalVelocity[0]/finalVelocityMagnitude)*maxSpeed
+                    finalVelocity[1] = (finalVelocity[1]/finalVelocityMagnitude)*maxSpeed
+                }
+
+                // Calculate new circle position
+                val newPosition: FloatArray = floatArrayOf(
+                    it.position[0] + ((it.velocity[0] + finalVelocity[0])/2)*deltaTime,
+                    it.position[1] + ((it.velocity[1] + finalVelocity[1])/2)*deltaTime
+                )
+
+                // Replace velocity and position with new values
+                it.velocity = finalVelocity
+                it.position = newPosition
+            }
+        }
+
+        if (readyToPause) {
+
+            // Reset the velocity of each particle to it's initial velocity (random)
+            for (particle in particleArray) particle?.let { it.velocity = it.initialVelocity }
+
+            // Set state to paused
+            state = PAUSED
+        }
+    }
+
+    /**
+     * Update view based on the state being PLAYING
+     */
+    fun playingUpdate(deltaTime: Float) {
+
+        // Retrieve main activity
         val mainActivity: MainActivity = context as MainActivity
-        val centreForce = if (mainActivity.minAngleFromSound < mainActivity.secondaryAngle) {
-            300f + 1200f*((mainActivity.secondaryAngle - mainActivity.minAngleFromSound)/mainActivity.secondaryAngle)
+
+        // Calculate the centre force
+        val centreForce: Float = if (mainActivity.minAngleFromSound < mainActivity.primaryAngle) {
+            centreForceUpperLimit
+        } else if (mainActivity.minAngleFromSound < mainActivity.secondaryAngle) {
+            centreForceLowerLimit + ((mainActivity.secondaryAngle - mainActivity.primaryAngle - mainActivity.minAngleFromSound)/(mainActivity.secondaryAngle - mainActivity.primaryAngle))*(centreForceUpperLimit - centreForceLowerLimit)
         } else {
-            300f
+            centreForceLowerLimit
         }
 
         for (particle in particleArray) {
@@ -175,10 +298,10 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
                 // Calculate magnitude
                 val toCentreMagnitude: Float = sqrt(toCentre[0].pow(2) + toCentre[1].pow(2))
 
-                // Normalise the vector and multiply by acceleration constant to get acceleration
+                // Compute acceleration using centre force and random force
                 val acceleration: FloatArray = floatArrayOf(
-                    (toCentre[0]/toCentreMagnitude)*centreForce,
-                    (toCentre[1]/toCentreMagnitude)*centreForce
+                    (toCentre[0]/toCentreMagnitude)*centreForce + it.randomForce[0],
+                    (toCentre[1]/toCentreMagnitude)*centreForce + it.randomForce[1]
                 )
 
                 // Compute the final velocity
@@ -212,6 +335,7 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      * Draw the latest particle positions
      */
     fun draw() {
+
         // Draw circle at its position
         holder?.let {
             // Extract particle positions as array
@@ -242,5 +366,36 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
             // Post canvas to surface
             it.unlockCanvasAndPost(canvas)
         }
+    }
+
+    /**
+     * Start playing the particle simulation (particles enter from the side)
+     */
+    fun play() {
+
+        // Update state
+        if (state == PAUSED) state = PLAYING
+    }
+
+    /**
+     * Start pausing process (particles will fly out to the side)
+     */
+    fun pause() {
+
+        // Update state
+        state = PAUSING
+    }
+
+    /**
+     * A helper function to generate a random direction/unit vector
+     */
+    fun generateRandomUnitVector(): FloatArray {
+
+        val vector: FloatArray = floatArrayOf(Random.nextFloat() - 0.5f, Random.nextFloat() - 0.5f)
+        val magnitude: Float = sqrt(vector[0].pow(2) + vector[1].pow(2))
+        return floatArrayOf(
+            vector[0]/magnitude,
+            vector[1]/magnitude
+        )
     }
 }

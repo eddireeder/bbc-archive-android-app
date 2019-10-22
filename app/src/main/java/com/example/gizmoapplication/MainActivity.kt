@@ -12,6 +12,8 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
 import android.view.Window
 import android.view.WindowManager
 import android.widget.TextView
@@ -49,6 +51,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var characterIndicesToDisplay: MutableList<Int> = mutableListOf()
     private var focusCharacterDelay: Float = 0f
 
+    private lateinit var particleView: ParticleView
     private lateinit var textView: TextView
     private lateinit var descriptionTextView: TextView
     private lateinit var categoryTextView: TextView
@@ -64,6 +67,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called on creation of Activity
      */
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
 
         // Enable full screen
@@ -74,6 +78,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         )
 
         setContentView(R.layout.activity_main)
+
+        Log.d("Startup", "Content view set")
 
         // Keep the screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -93,16 +99,20 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         }
 
-        // Get sound targets
-        updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
+        Log.d("Startup", "Sensor initialised")
 
         // Initialise static background sound and start playing
         backgroundEffect = BackgroundEffect(this)
 
+        Log.d("Startup", "Background effect started")
+
         // Initialise vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
-        // Retrieve text views
+        Log.d("Startup", "Vibrator initialised")
+
+        // Retrieve views
+        particleView = findViewById<ParticleView>(R.id.particleView)
         descriptionTextView = findViewById<TextView>(R.id.description)
         categoryTextView = findViewById<TextView>(R.id.category)
         trackInfoTextView = findViewById<TextView>(R.id.trackInfo)
@@ -112,12 +122,18 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         focusTimerRunnable = object: Runnable {
             override fun run() = focusTimerUpdate()
         }
+
+        Log.d("Startup", "Runnable initialised")
+
+        // Get sound targets
+        updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
     }
 
     /**
      * Called on resuming of activity
      */
     override fun onResume() {
+
         super.onResume()
 
         rotationVectorSensor?.also { sensor ->
@@ -133,6 +149,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called on pausing of activity
      */
     override fun onPause() {
+
         super.onPause()
 
         // Unregister this listener
@@ -146,6 +163,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called on change of sensor accuracy
      */
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+
         // Show accuracy
         var accuracyString: String = when (accuracy) {
             SensorManager.SENSOR_STATUS_NO_CONTACT -> "No contact"
@@ -162,6 +180,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called on change of sensor data
      */
     override fun onSensorChanged(event: SensorEvent) {
+
         Log.d("Sensor values", "${event.values[0].toString()} ${event.values[1].toString()} ${event.values[2].toString()}")
 
         // Calculate the phone's aim vector
@@ -270,9 +289,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     /**
+     * Handle touch events
+     */
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+
+        // If the action is a press down
+        if (event.action === MotionEvent.ACTION_DOWN) {
+            Log.d("particle view state", particleView.state.toString())
+            if (particleView.state == 2) particleView.play()
+            else if (particleView.state == 3) particleView.pause()
+        }
+        return true
+    }
+
+    /**
      * Compute the phone's aim direction vector in world coordinates
      */
     fun calculateAimVector(rotationVector: FloatArray): FloatArray {
+
         // Calculate rotation matrix
         var rotationMatrix: FloatArray = FloatArray(9)
         SensorManager.getRotationMatrixFromVector(rotationMatrix, rotationVector)
@@ -285,6 +319,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * The logic for controlling the background volume
      */
     fun calculateBackgroundVolume(minAngleFromSound: Float, secondaryAngle: Float): Float {
+
         if (minAngleFromSound < secondaryAngle) {
             return 0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
         } else {
@@ -296,6 +331,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Start focussing on the given sound
      */
     fun startFocussing(soundTarget: SoundTarget) {
+
         focusTarget = soundTarget
 
         // Initialise spannable strings
@@ -319,6 +355,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Stop focussing on any sounds
      */
     fun stopFocussing() {
+
         isFocussed = false
         focusTarget = null
 
@@ -383,6 +420,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Called once a sound has been focused on
      */
     fun onFocussed() {
+
         isFocussed = true
 
         // Vibrate the phone
@@ -396,6 +434,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Get an array of selected sound targets from the server and update soundTargets variable
      */
     fun updateSoundTargets(url: String) {
+
         // Update UI
         val textView = findViewById<TextView>(R.id.textView).apply {
             text = getString(R.string.retrieving_sounds)
@@ -443,6 +482,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 textView.apply {
                     text = ""
                 }
+
+                Log.d("Startup", "Sound targets retrieved")
             },
             Response.ErrorListener {error ->
                 // Update UI

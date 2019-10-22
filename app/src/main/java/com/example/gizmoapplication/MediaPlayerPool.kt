@@ -19,6 +19,7 @@ class MediaPlayerPool(maxStreams: Int) {
                 it.isLooping = true
             }
         }
+        Log.d("Startup", "Media Players in pool built")
     }
 
     /**
