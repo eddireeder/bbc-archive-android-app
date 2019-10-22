@@ -16,6 +16,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.widget.TextView
 import androidx.core.os.postDelayed
 import com.android.volley.Request
@@ -28,25 +30,24 @@ import org.w3c.dom.Text
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
+    private var readyToStart: Boolean = false
+
     private lateinit var sensorManager: SensorManager
     private lateinit var rotationVectorSensor: Sensor
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
     val primaryAngle: Float = 5f
     val secondaryAngle: Float = 30f
-    private lateinit var backgroundEffect: BackgroundEffect
-
     private val maxMediaPlayers: Int = 4
-    private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
-
+    private lateinit var mediaPlayerPool: MediaPlayerPool
+    private lateinit var backgroundEffect: BackgroundEffect
     var minAngleFromSound: Float = 180f
 
     private val timeToFocus: Float = 5f
     private var focusTarget: SoundTarget? = null
     private var isFocussed: Boolean = false
     private lateinit var vibrator: Vibrator
-
-    private val focusTimerHandler: Handler = Handler()
+    private val uiHandler: Handler = Handler()
     private lateinit var focusTimerRunnable: Runnable
     private var characterIndicesToDisplay: MutableList<Int> = mutableListOf()
     private var focusCharacterDelay: Float = 0f
@@ -56,12 +57,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var descriptionTextView: TextView
     private lateinit var categoryTextView: TextView
     private lateinit var trackInfoTextView: TextView
-
     private lateinit var descriptionText: String
     private lateinit var categoryText: String
     private lateinit var trackInfoText: String
-
     private lateinit var metaSpannable: SpannableString
+
+    private lateinit var fadeIn: Animation
+    private lateinit var fadeOut: Animation
+    private val fadeDuration: Float = 5f
+    private val startMessageDelay: Float = 3f
 
     /**
      * Called on creation of Activity
@@ -78,8 +82,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         )
 
         setContentView(R.layout.activity_main)
-
-        Log.d("Startup", "Content view set")
 
         // Keep the screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -99,17 +101,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         }
 
-        Log.d("Startup", "Sensor initialised")
+        // Initialise media player pool
+        mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
         // Initialise static background sound and start playing
         backgroundEffect = BackgroundEffect(this)
 
-        Log.d("Startup", "Background effect started")
-
         // Initialise vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-
-        Log.d("Startup", "Vibrator initialised")
 
         // Retrieve views
         particleView = findViewById<ParticleView>(R.id.particleView)
@@ -122,8 +121,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         focusTimerRunnable = object: Runnable {
             override fun run() = focusTimerUpdate()
         }
-
-        Log.d("Startup", "Runnable initialised")
 
         // Get sound targets
         updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
@@ -295,9 +292,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // If the action is a press down
         if (event.action === MotionEvent.ACTION_DOWN) {
-            Log.d("particle view state", particleView.state.toString())
-            if (particleView.state == 2) particleView.play()
-            else if (particleView.state == 3) particleView.pause()
+
+            // If the particle view is paused and we're ready to start
+            if (particleView.state == 2 && readyToStart) {
+
+                // Start the particle view
+                particleView.play()
+
+                // Remove the start message
+                textView.text = ""
+            }
+
+            // If particle view is playing
+            else if (particleView.state == 3) {
+
+                // Pause the particle view
+                particleView.pause()
+
+                // Set the start message
+                textView.text = resources.getString(R.string.start_message)
+            }
         }
         return true
     }
@@ -348,7 +362,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         focusCharacterDelay = timeToFocus/characterIndicesToDisplay.size
 
         // Start displaying characters
-        focusTimerHandler.postDelayed(focusTimerRunnable, 0)
+        uiHandler.postDelayed(focusTimerRunnable, 0)
     }
 
     /**
@@ -363,7 +377,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         characterIndicesToDisplay.clear()
 
         // Prevent any callbacks that may exist
-        focusTimerHandler.removeCallbacks(focusTimerRunnable)
+        uiHandler.removeCallbacks(focusTimerRunnable)
 
         // Update text views
         descriptionTextView.text = ""
@@ -407,7 +421,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (characterIndicesToDisplay.size > 0) {
 
             // Set runnable to rerun after delay
-            focusTimerHandler.postDelayed(focusTimerRunnable, (focusCharacterDelay * 1000f).toLong())
+            uiHandler.postDelayed(focusTimerRunnable, (focusCharacterDelay * 1000f).toLong())
 
         } else {
 
@@ -434,11 +448,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Get an array of selected sound targets from the server and update soundTargets variable
      */
     fun updateSoundTargets(url: String) {
-
-        // Update UI
-        val textView = findViewById<TextView>(R.id.textView).apply {
-            text = getString(R.string.retrieving_sounds)
-        }
 
         // Instantiate the RequestQueue
         val queue = Volley.newRequestQueue(this)
@@ -478,18 +487,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber, resID))
                 }
 
-                // Update UI
-                textView.apply {
-                    text = ""
-                }
+                // Set ready to start
+                readyToStart = true
 
-                Log.d("Startup", "Sound targets retrieved")
+                // Update UI
+                textView.text = resources.getString(R.string.start_message)
             },
             Response.ErrorListener {error ->
+
                 // Update UI
-                textView.apply {
-                    text = resources.getString(R.string.connection_error)
-                }
+                textView.text = resources.getString(R.string.connection_error)
             }
         )
 
