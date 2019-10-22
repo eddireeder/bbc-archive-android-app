@@ -62,11 +62,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var trackInfoText: String
     private lateinit var metaSpannable: SpannableString
 
-    private lateinit var fadeIn: Animation
-    private lateinit var fadeOut: Animation
-    private val fadeDuration: Float = 5f
-    private val startMessageDelay: Float = 3f
-
     /**
      * Called on creation of Activity
      */
