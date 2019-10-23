@@ -27,6 +27,7 @@ import com.android.volley.toolbox.Volley
 import org.json.JSONArray
 import org.json.JSONObject
 import org.w3c.dom.Text
+import kotlin.math.absoluteValue
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
@@ -34,16 +35,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private lateinit var rotationVectorSensor: Sensor
+    private var lastSignificantSensorValues: FloatArray? = null
+    private val maximumIdleSensorDifference: Float = 0.05f
+    private val maxIdleSeconds: Float = 10f
+    private lateinit var idleRunnable: Runnable
+    private val pausePlayTransitionSeconds: Float = 2f
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
-    val primaryAngle: Float = 5f
-    val secondaryAngle: Float = 30f
+    val primaryAngle: Float = 10f
+    val secondaryAngle: Float = 50f
     private val maxMediaPlayers: Int = 4
     private lateinit var mediaPlayerPool: MediaPlayerPool
     private lateinit var backgroundEffect: BackgroundEffect
     var minAngleFromSound: Float = 180f
 
-    private val timeToFocus: Float = 5f
+    private val timeToFocus: Float = 3f
     private var focusTarget: SoundTarget? = null
     private var isFocussed: Boolean = false
     private lateinit var vibrator: Vibrator
@@ -99,7 +105,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Initialise media player pool
         mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
-        // Initialise static background sound and start playing
+        // Initialise background sound
         backgroundEffect = BackgroundEffect(this)
 
         // Initialise vibrator
@@ -113,8 +119,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         textView = findViewById<TextView>(R.id.textView)
 
         // Initialise focus timer
-        focusTimerRunnable = object: Runnable {
-            override fun run() = focusTimerUpdate()
+        focusTimerRunnable = Runnable {
+            focusTimerUpdate()
+        }
+
+        // Initialise idle runnable timer
+        idleRunnable = Runnable {
+            onIdle()
         }
 
         // Get sound targets
@@ -133,8 +144,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
         }
 
-        // Resume the static effect
-        backgroundEffect.resume()
+        // Start the background effect playing silently
+        backgroundEffect.startSilently()
     }
 
     /**
@@ -147,8 +158,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Unregister this listener
         sensorManager.unregisterListener(this)
 
-        // Pause the static effect
-        backgroundEffect.pause()
+        // Stop the background effect
+        backgroundEffect.stop()
+
+        // Recycle all sound target's media players
+        recycleAllMediaPlayers()
     }
 
     /**
@@ -173,7 +187,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     override fun onSensorChanged(event: SensorEvent) {
 
-        Log.d("Sensor values", "${event.values[0].toString()} ${event.values[1].toString()} ${event.values[2].toString()}")
+        // Check whether need to pause
+        checkWhetherIdle(event.values)
+
+        // If particle view is not set to playing, don't continue
+        if (particleView.state != ParticleView.PLAYING) return
 
         // Calculate the phone's aim vector
         val aimVector: FloatArray = calculateAimVector(event.values)
@@ -277,7 +295,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // Set the background volume
-        backgroundEffect.setVolume(calculateBackgroundVolume(minAngleFromSound, secondaryAngle))
+        backgroundEffect.setVolume(calculateBackgroundVolume())
     }
 
     /**
@@ -288,27 +306,125 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // If the action is a press down
         if (event.action === MotionEvent.ACTION_DOWN) {
 
-            // If the particle view is paused and we're ready to start
-            if (particleView.state == 2 && readyToStart) {
-
-                // Start the particle view
-                particleView.play()
-
-                // Remove the start message
-                textView.text = ""
-            }
-
-            // If particle view is playing
-            else if (particleView.state == 3) {
-
-                // Pause the particle view
-                particleView.pause()
-
-                // Set the start message
-                textView.text = resources.getString(R.string.start_message)
-            }
+            // Play the experience
+            play()
         }
         return true
+    }
+
+    /**
+     * Check whether the phone is being used, if not then pause the experience
+     */
+    fun checkWhetherIdle(sensorValues: FloatArray) {
+
+        // If the particle view is not playing, do nothing
+        if (particleView.state != ParticleView.PLAYING) return
+
+        // If we don't have any significant sensor values yet
+        if (lastSignificantSensorValues == null) {
+
+            // Record values
+            lastSignificantSensorValues = sensorValues.copyOf()
+
+            // Set new runnable timer
+            uiHandler.postDelayed(idleRunnable, (maxIdleSeconds*1000f).toLong())
+
+            return
+        }
+
+        lastSignificantSensorValues?.let {
+            for (i in 0..2) {
+
+                // Check whether there is a significant difference from the last recorded values
+                if ((it[i] - sensorValues[i]).absoluteValue > maximumIdleSensorDifference) {
+
+                    // Cancel the existing runnable
+                    uiHandler.removeCallbacks(idleRunnable)
+
+                    // Reset significant values
+                    lastSignificantSensorValues = sensorValues.copyOf()
+
+                    // Set new runnable
+                    uiHandler.postDelayed(idleRunnable, (maxIdleSeconds*1000f).toLong())
+
+                    return
+                }
+            }
+        }
+    }
+
+    /**
+     * Function run by idle runnable when idle
+     */
+    fun onIdle() {
+
+        // Reset the last sensor values
+        lastSignificantSensorValues = null
+
+        // Pause experience
+        pause()
+    }
+
+    /**
+     * Attempts to pause the whole experience
+     */
+    fun pause() {
+
+        // Don't continue if particle view is not playing
+        if (particleView.state != 3) return
+
+        // Pause the particle view
+        particleView.pause()
+
+        // Set the start message after a delay
+        uiHandler.postDelayed(Runnable {
+            textView.text = resources.getString(R.string.start_message)
+        }, (pausePlayTransitionSeconds*1000).toLong())
+
+        // Stop focussing if needed
+        if (focusTarget != null) {
+            stopFocussing()
+        }
+
+        // Set the volume of background effect to 0
+        backgroundEffect.setVolume(0f)
+
+        // Set the volume of each media player in pool to 0
+        setVolumeForAllSoundTargets(0f)
+    }
+
+    /**
+     * Recycle all media players and remove from sound targets (reset media pool)
+     */
+    fun recycleAllMediaPlayers() {
+
+        // For each sound target that has a media player
+        for (soundTarget in soundTargets) {
+            soundTarget.mediaPlayerWithState?.let {
+
+                // Recycle whether or not it's prepared
+                mediaPlayerPool.recyclePlayer(it)
+
+                // Set property to null
+                soundTarget.mediaPlayerWithState = null
+            }
+        }
+    }
+
+    /**
+     * Attempts to play the whole experience
+     */
+    fun play() {
+
+        // If the particle view is paused and we're ready to start
+        if (particleView.state == 2 && readyToStart) {
+
+            // Start the particle view
+            particleView.play()
+
+            // Remove the start message
+            textView.text = ""
+        }
     }
 
     /**
@@ -327,13 +443,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     /**
      * The logic for controlling the background volume
      */
-    fun calculateBackgroundVolume(minAngleFromSound: Float, secondaryAngle: Float): Float {
+    fun calculateBackgroundVolume(): Float {
 
-        if (minAngleFromSound < secondaryAngle) {
-            return 0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
-        } else {
-            return 1f
-        }
+        // Volume should be 0 if focussed on a sound
+        if (isFocussed) return 0f
+
+        // Volume relative to distance to sound centre
+        if (minAngleFromSound < secondaryAngle) return 0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
+
+        // Volume should be full as we're not near any sounds
+        return 1f
     }
 
     /**
@@ -378,9 +497,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         descriptionTextView.text = ""
         categoryTextView.text = ""
         trackInfoTextView.text = ""
-
-        // Resume background effect
-        backgroundEffect.resume()
     }
 
     /**
@@ -437,6 +553,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Pause the background effect
         backgroundEffect.pause()
+    }
+
+    /**
+     * Sets the volume on every media player assigned to a sound target
+     */
+    fun setVolumeForAllSoundTargets(volume: Float) {
+
+        // For each sound target that has a media player
+        for (soundTarget in soundTargets) {
+            soundTarget.mediaPlayerWithState?.let {
+
+                // Set media player volume
+                it.mediaPlayer.setVolume(volume, volume)
+            }
+        }
     }
 
     /**

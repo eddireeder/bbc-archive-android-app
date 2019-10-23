@@ -1,52 +1,76 @@
 package com.example.gizmoapplication
 
 import android.content.Context
+import android.media.MediaPlayer
 import android.media.SoundPool
+import android.util.Log
 
 class BackgroundEffect (val context: Context) {
 
-    private val soundPool: SoundPool
-    private var streamID: Int? = null
+    private val mediaPlayer: MediaPlayer
 
-    /**
-     * Initialise the sound pool and start playing the effect
-     */
     init {
-        SoundPool.Builder().let {
-            soundPool = it.build()
+        // Initialise the media player and set on prepared listener
+        mediaPlayer = MediaPlayer().apply {
+            setOnPreparedListener { onPrepared(it) }
         }
-        soundPool.setOnLoadCompleteListener(object: SoundPool.OnLoadCompleteListener {
-            override fun onLoadComplete(soundPool: SoundPool, sampleId: Int, status: Int) {
-                streamID = soundPool.play(sampleId, 1.0f, 1.0f, 1, -1, 1.0f)
-            }
-        })
-        soundPool.load(context, R.raw.soundbed, 1)
     }
 
     /**
-     *  Pause the sound effect
+     * Load resource and start preparing
+     */
+    fun startSilently() {
+
+        // Start playing background sound resource
+        context.resources.openRawResourceFd(R.raw.soundbed)?.let { assetFileDescriptor ->
+            mediaPlayer.run {
+                setDataSource(assetFileDescriptor)
+                prepareAsync()
+            }
+        }
+    }
+
+    /**
+     * Called once the resource is prepared, should start playing with no volume
+     */
+    fun onPrepared(mediaPlayer: MediaPlayer) {
+
+        mediaPlayer.apply {
+            setVolume(0f, 0f)
+            start()
+            isLooping = true
+        }
+    }
+
+    /**
+     * Stop playback, player would have to prepare to start again
+     */
+    fun stop() {
+
+        mediaPlayer.stop()
+    }
+
+    /**
+     * Continues playback when paused
+     */
+    fun play() {
+
+        mediaPlayer.start()
+    }
+
+    /**
+     * Pauses playback
      */
     fun pause() {
-        streamID?.let {
-            soundPool.pause(it)
-        }
+
+        mediaPlayer.pause()
     }
 
     /**
      * Set the sound volume
      */
     fun setVolume(volume: Float) {
-        streamID?.let {
-            soundPool.setVolume(it, volume, volume)
-        }
-    }
 
-    /**
-     * Resume the sound effect
-     */
-    fun resume() {
-        streamID?.let {
-            soundPool.resume(it)
-        }
+        mediaPlayer.setVolume(volume, volume)
     }
 }

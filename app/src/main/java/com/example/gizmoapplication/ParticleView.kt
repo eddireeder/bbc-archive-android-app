@@ -21,10 +21,10 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int): super(context, attrs, defStyleAttr)
 
     companion object {
-        private const val INITIALISING: Int = 0
-        private const val PAUSING: Int = 1
-        private const val PAUSED: Int = 2
-        private const val PLAYING: Int = 3
+        const val INITIALISING: Int = 0
+        const val PAUSING: Int = 1
+        const val PAUSED: Int = 2
+        const val PLAYING: Int = 3
     }
 
     var state: Int = INITIALISING
