@@ -55,6 +55,8 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particleHandlerThread: HandlerThread = HandlerThread("ParticleHandlerThread")
     private var particleHandler: Handler? = null
 
+    private val mainActivity: MainActivity = context as MainActivity
+
     init {
         // Register choreographer frame callback
         Choreographer.getInstance().postFrameCallback(this)
@@ -274,9 +276,6 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      */
     fun playingUpdate(deltaTime: Float) {
 
-        // Retrieve main activity
-        val mainActivity: MainActivity = context as MainActivity
-
         // Calculate the centre force
         val centreForce: Float = if (mainActivity.minAngleFromSound < mainActivity.primaryAngle) {
             centreForceUpperLimit
@@ -360,8 +359,8 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
             // Draw a point for each particle
             canvas.drawPoints(pointPositions, particlePaint)
 
-            // Draw current FPS
-            canvas.drawText(fps.toString(), 20f, 60f, textPaint)
+            // Draw current FPS if debug mode on
+            if (mainActivity.debugMode) canvas.drawText(fps.toString(), 20f, 60f, textPaint)
 
             // Post canvas to surface
             it.unlockCanvasAndPost(canvas)

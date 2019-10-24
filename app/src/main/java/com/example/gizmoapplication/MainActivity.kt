@@ -32,18 +32,19 @@ import kotlin.math.absoluteValue
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private var readyToStart: Boolean = false
+    val debugMode: Boolean = true
 
     private lateinit var sensorManager: SensorManager
     private lateinit var rotationVectorSensor: Sensor
     private var lastSignificantSensorValues: FloatArray? = null
-    private val maximumIdleSensorDifference: Float = 0.05f
-    private val maxIdleSeconds: Float = 10f
+    private val maximumIdleSensorDifference: Float = 0.01f
+    private val maxIdleSeconds: Float = 30f
     private lateinit var idleRunnable: Runnable
     private val pausePlayTransitionSeconds: Float = 2f
 
     private val soundTargets: MutableList<SoundTarget> = mutableListOf()
-    val primaryAngle: Float = 10f
-    val secondaryAngle: Float = 50f
+    val primaryAngle: Float = 5f
+    val secondaryAngle: Float = 30f
     private val maxMediaPlayers: Int = 4
     private lateinit var mediaPlayerPool: MediaPlayerPool
     private lateinit var backgroundEffect: BackgroundEffect
@@ -59,6 +60,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var focusCharacterDelay: Float = 0f
 
     private lateinit var particleView: ParticleView
+    private lateinit var sensorData: TextView
+    private lateinit var anglesToSounds: TextView
     private lateinit var textView: TextView
     private lateinit var descriptionTextView: TextView
     private lateinit var categoryTextView: TextView
@@ -113,6 +116,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Retrieve views
         particleView = findViewById<ParticleView>(R.id.particleView)
+        sensorData = findViewById<TextView>(R.id.sensorData)
+        anglesToSounds = findViewById<TextView>(R.id.anglesToSounds)
         descriptionTextView = findViewById<TextView>(R.id.description)
         categoryTextView = findViewById<TextView>(R.id.category)
         trackInfoTextView = findViewById<TextView>(R.id.trackInfo)
@@ -187,6 +192,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     override fun onSensorChanged(event: SensorEvent) {
 
+        // Display sensor data if debug on
+        if (debugMode) sensorData.text = "(${event.values[0].toString().slice(0..4)}, ${event.values[1].toString().slice(0..4)}, ${event.values[2].toString().slice(0..4)})"
+
+        // Create string to display all angles to sounds
+        var anglesToSoundsString = ""
+
         // Check whether need to pause
         checkWhetherIdle(event.values)
 
@@ -224,6 +235,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         for (i in orderedSoundTargets.indices) {
 
+            // Put degrees from sound into debug string
+            if (debugMode) anglesToSoundsString += " ${orderedSoundTargets[i].degreesFromAim.toInt()}"
+
             // If the closest target
             if (i === 0) {
 
@@ -256,8 +270,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 // If media player is available in the pool
                 mediaPlayerPool.requestPlayer()?.let {mediaPlayerWithState ->
 
-                    Log.i("Media", "Player requested")
-
                     // Assign to sound target
                     orderedSoundTargets[i].mediaPlayerWithState = mediaPlayerWithState
 
@@ -265,7 +277,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     resources.openRawResourceFd(orderedSoundTargets[i].resID)?.let { assetFileDescriptor ->
                         mediaPlayerWithState.mediaPlayer.run {
                             setDataSource(assetFileDescriptor)
-                            Log.i("Media", "Starting prepare async")
                             prepareAsync()
                         }
                     }
@@ -295,7 +306,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // Set the background volume
+        Log.d("Background volume", calculateBackgroundVolume().toString())
         backgroundEffect.setVolume(calculateBackgroundVolume())
+
+        // Set debug text to show
+        if (debugMode) anglesToSounds.text = anglesToSoundsString
     }
 
     /**
@@ -550,9 +565,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Vibrate the phone
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-
-        // Pause the background effect
-        backgroundEffect.pause()
     }
 
     /**
