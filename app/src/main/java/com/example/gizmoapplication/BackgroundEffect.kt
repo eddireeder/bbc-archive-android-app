@@ -5,15 +5,16 @@ import android.media.MediaPlayer
 import android.media.SoundPool
 import android.util.Log
 
-class BackgroundEffect (val context: Context) {
+class BackgroundEffect (private val context: Context) {
 
     private val mediaPlayer: MediaPlayer
 
     init {
-        // Initialise the media player and set on prepared listener
+        // Initialise the media player, set on prepared listener and call to prepare/start
         mediaPlayer = MediaPlayer().apply {
             setOnPreparedListener { onPrepared(it) }
         }
+        startSilently()
     }
 
     /**

@@ -108,7 +108,6 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
                 draw()
             }
         }
-        Log.d("Startup", "Particle view set up")
     }
 
     /**
@@ -275,15 +274,26 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      * Update view based on the state being PLAYING
      */
     fun playingUpdate(deltaTime: Float) {
-
+/*
         // Calculate the centre force
-        val centreForce: Float = if (mainActivity.minAngleFromSound < mainActivity.primaryAngle) {
-            centreForceUpperLimit
-        } else if (mainActivity.minAngleFromSound < mainActivity.secondaryAngle) {
-            centreForceLowerLimit + ((mainActivity.secondaryAngle - mainActivity.primaryAngle - mainActivity.minAngleFromSound)/(mainActivity.secondaryAngle - mainActivity.primaryAngle))*(centreForceUpperLimit - centreForceLowerLimit)
+        val centreForce: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
+
+            // Create a variable to reference closest sound for readibility
+            val closestSoundTarget: SoundTarget = mainActivity.soundTargetManager.orderedSoundTargets[0]
+
+            if (closestSoundTarget.degreesFromAim < mainActivity.configuration.primaryAngle) {
+                centreForceUpperLimit
+            } else if (closestSoundTarget.degreesFromAim < mainActivity.configuration.secondaryAngle) {
+                centreForceLowerLimit + ((mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle - closestSoundTarget.degreesFromAim)/(mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle))*(centreForceUpperLimit - centreForceLowerLimit)
+            } else {
+                centreForceLowerLimit
+            }
         } else {
             centreForceLowerLimit
         }
+
+ */
+        val centreForce: Float = centreForceLowerLimit
 
         for (particle in particleArray) {
             particle?.let {

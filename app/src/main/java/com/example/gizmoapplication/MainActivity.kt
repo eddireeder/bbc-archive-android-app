@@ -7,52 +7,40 @@ import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.hardware.SensorManager
 import android.os.*
-import android.text.Html
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.MotionEvent
-import android.view.View
 import android.view.Window
 import android.view.WindowManager
-import android.view.animation.AlphaAnimation
-import android.view.animation.Animation
 import android.widget.TextView
-import androidx.core.os.postDelayed
-import com.android.volley.Request
-import com.android.volley.Response
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.Volley
-import org.json.JSONArray
-import org.json.JSONObject
-import org.w3c.dom.Text
+import kotlinx.coroutines.*
+import java.lang.Runnable
+import kotlin.coroutines.CoroutineContext
 import kotlin.math.absoluteValue
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
+
+    lateinit var configuration: Configuration
+    lateinit var soundTargetManager: SoundTargetManager
 
     private var readyToStart: Boolean = false
     val debugMode: Boolean = true
 
     private lateinit var sensorManager: SensorManager
-    private lateinit var rotationVectorSensor: Sensor
+    private var rotationVectorSensor: Sensor? = null
     private var lastSignificantSensorValues: FloatArray? = null
     private val maximumIdleSensorDifference: Float = 0.01f
     private val maxIdleSeconds: Float = 30f
     private lateinit var idleRunnable: Runnable
     private val pausePlayTransitionSeconds: Float = 2f
 
-    private val soundTargets: MutableList<SoundTarget> = mutableListOf()
-    val primaryAngle: Float = 5f
-    val secondaryAngle: Float = 30f
     private val maxMediaPlayers: Int = 4
-    private lateinit var mediaPlayerPool: MediaPlayerPool
     private lateinit var backgroundEffect: BackgroundEffect
-    var minAngleFromSound: Float = 180f
 
-    private val timeToFocus: Float = 3f
-    private var focusTarget: SoundTarget? = null
-    private var isFocussed: Boolean = false
+    var focusTarget: SoundTarget? = null
+    var isFocussed: Boolean = false
     private lateinit var vibrator: Vibrator
     private val uiHandler: Handler = Handler()
     private lateinit var focusTimerRunnable: Runnable
@@ -90,6 +78,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Keep the screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // Retrieve views
+        retrieveViews()
+
         // Initialise sensor manager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
@@ -101,27 +92,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
 
             if (rotationVectorSensor == null) {
-                // TODO: Handle unavailable sensor
+                // Update UI
+                textView.text = resources.getString(R.string.sensor_unavailable)
             }
         }
 
-        // Initialise media player pool
-        mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
+        rotationVectorSensor?.also { sensor ->
+            // Register listener (this class) with sensor manager
+            sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+        }
 
-        // Initialise background sound
+        // Initialise background sound (will start to play silently)
         backgroundEffect = BackgroundEffect(this)
 
         // Initialise vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-
-        // Retrieve views
-        particleView = findViewById<ParticleView>(R.id.particleView)
-        sensorData = findViewById<TextView>(R.id.sensorData)
-        anglesToSounds = findViewById<TextView>(R.id.anglesToSounds)
-        descriptionTextView = findViewById<TextView>(R.id.description)
-        categoryTextView = findViewById<TextView>(R.id.category)
-        trackInfoTextView = findViewById<TextView>(R.id.trackInfo)
-        textView = findViewById<TextView>(R.id.textView)
 
         // Initialise focus timer
         focusTimerRunnable = Runnable {
@@ -133,41 +118,57 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             onIdle()
         }
 
-        // Get sound targets
-        updateSoundTargets("http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api/sounds")
-    }
+        // Launch a new coroutine and keep a reference to its job
+        val job = GlobalScope.launch {
 
-    /**
-     * Called on resuming of activity
-     */
-    override fun onResume() {
+            val serverMaster = ServerMaster(this@MainActivity)
 
-        super.onResume()
+            val fetchConfiguration = async { serverMaster.fetchConfiguration() }
+            val fetchSoundTargets = async { serverMaster.fetchSoundTargets() }
 
-        rotationVectorSensor?.also { sensor ->
-            // Register listener (this class) with sensor manager
-            sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            val configuration = fetchConfiguration.await()
+            val soundTargets = fetchSoundTargets.await()
+
+            if (configuration != null && soundTargets != null) {
+
+                // Assign to main instance
+                this@MainActivity.configuration = configuration
+
+                // Assign to main instance
+                this@MainActivity.soundTargetManager = SoundTargetManager(
+                    this@MainActivity,
+                    soundTargets,
+                    maxMediaPlayers,
+                    configuration.secondaryAngle
+                )
+
+                // Set as ready to start
+                readyToStart = true
+
+                // Update UI
+                textView.text = resources.getString(R.string.start_message)
+            }
+
+            else {
+
+                // Update UI
+                textView.text = resources.getString(R.string.connection_error)
+            }
         }
-
-        // Start the background effect playing silently
-        backgroundEffect.startSilently()
     }
 
     /**
-     * Called on pausing of activity
+     * Called during view initialisation
      */
-    override fun onPause() {
+    fun retrieveViews() {
 
-        super.onPause()
-
-        // Unregister this listener
-        sensorManager.unregisterListener(this)
-
-        // Stop the background effect
-        backgroundEffect.stop()
-
-        // Recycle all sound target's media players
-        recycleAllMediaPlayers()
+        particleView = findViewById(R.id.particleView)
+        sensorData = findViewById(R.id.sensorData)
+        anglesToSounds = findViewById(R.id.anglesToSounds)
+        descriptionTextView = findViewById(R.id.description)
+        categoryTextView = findViewById(R.id.category)
+        trackInfoTextView = findViewById(R.id.trackInfo)
+        textView = findViewById(R.id.textView)
     }
 
     /**
@@ -195,9 +196,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Display sensor data if debug on
         if (debugMode) sensorData.text = "(${event.values[0].toString().slice(0..4)}, ${event.values[1].toString().slice(0..4)}, ${event.values[2].toString().slice(0..4)})"
 
-        // Create string to display all angles to sounds
-        var anglesToSoundsString = ""
-
         // Check whether need to pause
         checkWhetherIdle(event.values)
 
@@ -205,112 +203,51 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (particleView.state != ParticleView.PLAYING) return
 
         // Calculate the phone's aim vector
-        val aimVector: FloatArray = calculateAimVector(event.values)
+        val aimDirectionVector: FloatArray = calculateAimVector(event.values)
 
-        // Update all sound targets with new degrees from aim
-        for (soundTarget in soundTargets) soundTarget.updateDegreesFromAim(aimVector)
+        soundTargetManager.apply {
 
-        // Retrieve ordered list of sound targets
-        val orderedSoundTargets: List<SoundTarget> = soundTargets.sortedBy {it.degreesFromAim}
+            // Update all sound targets with new degrees from aim
+            updateSoundTargetsDegreesFromAim(aimDirectionVector)
 
-        // Recycle media players first before allocating them
-        for (i in orderedSoundTargets.indices) {
-            if (
-                i + 1 > maxMediaPlayers ||
-                orderedSoundTargets[i].degreesFromAim > secondaryAngle
-            ) {
-                // Recycle media player if not null and the player has been prepared
-                orderedSoundTargets[i].mediaPlayerWithState?.let {
-                    if (it.prepared) {
-                        Log.i("Media", "Recycling prepared player")
-                        mediaPlayerPool.recyclePlayer(it)
-                        orderedSoundTargets[i].mediaPlayerWithState = null
-                        Log.i("Media", "Player recycled")
-                    } else {
-                        Log.i("Media", "Player not prepared, not recycling")
-                    }
-                }
-            }
+            // Order sound targets
+            reorderSoundTargets()
+
+            // Reallocate media players
+            reallocateMediaPlayers()
+
+            // Update media players volumes
+            updateMediaPlayerVolumes()
         }
 
-        for (i in orderedSoundTargets.indices) {
+        // If debug mode then show the latest angles to sounds
+        if (debugMode) anglesToSounds.text = soundTargetManager.generateAnglesToSoundsString()
 
-            // Put degrees from sound into debug string
-            if (debugMode) anglesToSoundsString += " ${orderedSoundTargets[i].degreesFromAim.toInt()}"
+        // Ensure focussing on target if needed, else ensure not focussing
+        for (i in soundTargetManager.orderedSoundTargets.indices) {
 
             // If the closest target
-            if (i === 0) {
+            if (i == 0) {
 
-                // Assign min angle
-                minAngleFromSound = orderedSoundTargets[i].degreesFromAim
-                Log.d("Minimum angle from sound", minAngleFromSound.toString())
+                // If within the primary angle
+                if (soundTargetManager.orderedSoundTargets[i].degreesFromAim <= configuration.primaryAngle) {
 
-                if (orderedSoundTargets[i].degreesFromAim <= primaryAngle) {
                     // Ensure focussing on target
-                    if (focusTarget == null) {
-                        startFocussing(orderedSoundTargets[i])
-                    }
+                    if (focusTarget == null) startFocussing(soundTargetManager.orderedSoundTargets[i])
                 }
             }
 
             // Check whether need to stop focussing
             if (
-                orderedSoundTargets[i].degreesFromAim > primaryAngle &&
-                focusTarget == orderedSoundTargets[i]
+                soundTargetManager.orderedSoundTargets[i].degreesFromAim > configuration.primaryAngle &&
+                focusTarget == soundTargetManager.orderedSoundTargets[i]
             ) {
                 stopFocussing()
-            }
-
-            // Find targets that have no media player but need one
-            if (
-                orderedSoundTargets[i].mediaPlayerWithState === null &&
-                i + 1 <= maxMediaPlayers &&
-                orderedSoundTargets[i].degreesFromAim <= secondaryAngle
-            ) {
-                // If media player is available in the pool
-                mediaPlayerPool.requestPlayer()?.let {mediaPlayerWithState ->
-
-                    // Assign to sound target
-                    orderedSoundTargets[i].mediaPlayerWithState = mediaPlayerWithState
-
-                    // Start playing sound resource
-                    resources.openRawResourceFd(orderedSoundTargets[i].resID)?.let { assetFileDescriptor ->
-                        mediaPlayerWithState.mediaPlayer.run {
-                            setDataSource(assetFileDescriptor)
-                            prepareAsync()
-                        }
-                    }
-                }
-            }
-
-            // If sound target has media player
-            orderedSoundTargets[i].mediaPlayerWithState?.mediaPlayer?.apply {
-
-                // Calculate the new volume
-                val volume: Float = if (isFocussed) {
-                    if (focusTarget == orderedSoundTargets[i]) {
-                        // Focussed on sound so full volume
-                        1f
-                    } else {
-                        // Focussed on another sound so 0 volume
-                        0f
-                    }
-                } else {
-                    // Volume relative to distance away (up to 80%)
-                    (0.8f - 0.8f * (orderedSoundTargets[i].degreesFromAim/secondaryAngle))
-                }
-
-                // Set the media player volume
-                setVolume(volume, volume)
             }
         }
 
         // Set the background volume
-        Log.d("Background volume", calculateBackgroundVolume().toString())
         backgroundEffect.setVolume(calculateBackgroundVolume())
-
-        // Set debug text to show
-        if (debugMode) anglesToSounds.text = anglesToSoundsString
     }
 
     /**
@@ -319,7 +256,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onTouchEvent(event: MotionEvent): Boolean {
 
         // If the action is a press down
-        if (event.action === MotionEvent.ACTION_DOWN) {
+        if (event.action == MotionEvent.ACTION_DOWN) {
 
             // Play the experience
             play()
@@ -405,25 +342,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         backgroundEffect.setVolume(0f)
 
         // Set the volume of each media player in pool to 0
-        setVolumeForAllSoundTargets(0f)
-    }
-
-    /**
-     * Recycle all media players and remove from sound targets (reset media pool)
-     */
-    fun recycleAllMediaPlayers() {
-
-        // For each sound target that has a media player
-        for (soundTarget in soundTargets) {
-            soundTarget.mediaPlayerWithState?.let {
-
-                // Recycle whether or not it's prepared
-                mediaPlayerPool.recyclePlayer(it)
-
-                // Set property to null
-                soundTarget.mediaPlayerWithState = null
-            }
-        }
+        soundTargetManager.setVolumeForAllSoundTargets(0f)
     }
 
     /**
@@ -463,8 +382,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Volume should be 0 if focussed on a sound
         if (isFocussed) return 0f
 
+        // If there are no sound targets return full volume
+        if (soundTargetManager.orderedSoundTargets.size == 0) return 1f
+
+        // Retrieve the minimum angle from the closest sound
+        val minAngleFromSound: Float = soundTargetManager.orderedSoundTargets[0].degreesFromAim
+
         // Volume relative to distance to sound centre
-        if (minAngleFromSound < secondaryAngle) return 0.2f + 0.8f*(minAngleFromSound/secondaryAngle)
+        if (minAngleFromSound < configuration.secondaryAngle) return 0.2f + 0.8f*(minAngleFromSound/configuration.secondaryAngle)
 
         // Volume should be full as we're not near any sounds
         return 1f
@@ -488,7 +413,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         characterIndicesToDisplay = (metaSpannable.indices).toMutableList()
 
         // Calculate the delay between each character
-        focusCharacterDelay = timeToFocus/characterIndicesToDisplay.size
+        focusCharacterDelay = configuration.timeToFocus/characterIndicesToDisplay.size
 
         // Start displaying characters
         uiHandler.postDelayed(focusTimerRunnable, 0)
@@ -565,83 +490,5 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Vibrate the phone
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-    }
-
-    /**
-     * Sets the volume on every media player assigned to a sound target
-     */
-    fun setVolumeForAllSoundTargets(volume: Float) {
-
-        // For each sound target that has a media player
-        for (soundTarget in soundTargets) {
-            soundTarget.mediaPlayerWithState?.let {
-
-                // Set media player volume
-                it.mediaPlayer.setVolume(volume, volume)
-            }
-        }
-    }
-
-    /**
-     * Get an array of selected sound targets from the server and update soundTargets variable
-     */
-    fun updateSoundTargets(url: String) {
-
-        // Instantiate the RequestQueue
-        val queue = Volley.newRequestQueue(this)
-
-        // Retrieve sound JSON from server
-        val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, url, null,
-            Response.Listener {response ->
-                // Extract the JSON array of sounds
-                val soundJSONArray: JSONArray = response.getJSONArray("sounds")
-
-                // Loop through sounds
-                for (i in 1..soundJSONArray.length()) {
-
-                    // Extract the sound JSON
-                    val soundJSON: JSONObject = soundJSONArray.getJSONObject(i - 1)
-
-                    // Extract the sound direction as a float array
-                    val directionVector: FloatArray = floatArrayOf(
-                        soundJSON.getDouble("directionX").toFloat(),
-                        soundJSON.getDouble("directionY").toFloat(),
-                        soundJSON.getDouble("directionZ").toFloat()
-                    )
-
-                    // Retrieve the rest of the sound data
-                    val location: String = soundJSON.getString("location")
-                    val description: String = soundJSON.getString("description")
-                    val category: String = soundJSON.getString("category")
-                    val cdNumber: String = soundJSON.getString("cdNumber")
-                    val cdName: String = soundJSON.getString("cdName")
-                    val trackNumber: Int = soundJSON.getInt("trackNumber")
-
-                    // Check resource exists and get id
-                    val resID: Int = resources.getIdentifier("sound_${location.split(".")[0]}", "raw", this.packageName)
-                    if (resID == 0) continue
-
-                    // Create sound target object and add to list
-                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber, resID))
-                }
-
-                // Set ready to start
-                readyToStart = true
-
-                // Update UI
-                textView.text = resources.getString(R.string.start_message)
-            },
-            Response.ErrorListener {error ->
-
-                // Update UI
-                textView.text = resources.getString(R.string.connection_error)
-            }
-        )
-
-        // Don't cache the request
-        jsonObjectRequest.setShouldCache(false);
-
-        // Add the request to the RequestQueue
-        queue.add(jsonObjectRequest)
     }
 }

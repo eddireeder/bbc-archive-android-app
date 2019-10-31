@@ -3,6 +3,8 @@
     <string name="focussing">Focussing</string>
     <string name="focussed">Focussed</string>
     <string name="connection_error">Could not connect</string>
+    <string name="sensor_unavailable">Sensor unavailable</string>
     <string name="retrieving_sounds">Retrieving sounds</string>
     <string name="start_message">Tap to start</string>
+    <string name="api_url">http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api</string>
 </resources>

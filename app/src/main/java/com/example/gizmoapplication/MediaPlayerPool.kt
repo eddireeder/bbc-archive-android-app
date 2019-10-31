@@ -3,10 +3,10 @@ package com.example.gizmoapplication
 import android.media.MediaPlayer
 import android.util.Log
 
-class MediaPlayerPool(maxStreams: Int) {
+class MediaPlayerPool(maxMediaPlayers: Int) {
 
     private val mediaPlayerPool = mutableListOf<MediaPlayerWithState>().also {
-        for (i in 0 until maxStreams) it += MediaPlayerWithState(MediaPlayer(), false)
+        for (i in 0 until maxMediaPlayers) it += MediaPlayerWithState(MediaPlayer(), false)
     }
 
     init {

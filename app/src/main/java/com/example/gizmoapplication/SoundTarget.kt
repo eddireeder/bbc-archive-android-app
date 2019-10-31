@@ -23,9 +23,9 @@ class SoundTarget (
     /**
      * Update the current angle from the aim direction in degrees
      */
-    fun updateDegreesFromAim(aimVector: FloatArray) {
+    fun updateDegreesFromAim(aimDirectionVector: FloatArray) {
         // Update variable
-        degreesFromAim = getDegreesFrom(aimVector)
+        degreesFromAim = getDegreesFrom(aimDirectionVector)
     }
 
     /**
