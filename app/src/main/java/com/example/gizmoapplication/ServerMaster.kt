@@ -33,7 +33,10 @@ class ServerMaster(val context: Context) {
                 val configuration = Configuration(
                     configurationJSON.getDouble("primaryAngle").toFloat(),
                     configurationJSON.getDouble("secondaryAngle").toFloat(),
-                    configurationJSON.getDouble("timeToFocus").toFloat()
+                    configurationJSON.getDouble("timeToFocus").toFloat(),
+                    configurationJSON.getInt("maxMediaPlayers"),
+                    configurationJSON.getDouble("maxIdleSensorDifference").toFloat(),
+                    configurationJSON.getDouble("maxIdleSeconds").toFloat()
                 )
 
                 // Return configuration

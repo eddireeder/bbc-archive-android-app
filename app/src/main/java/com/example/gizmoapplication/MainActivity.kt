@@ -31,12 +31,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
     private var lastSignificantSensorValues: FloatArray? = null
-    private val maximumIdleSensorDifference: Float = 0.01f
-    private val maxIdleSeconds: Float = 30f
     private lateinit var idleRunnable: Runnable
     private val pausePlayTransitionSeconds: Float = 2f
 
-    private val maxMediaPlayers: Int = 4
     private lateinit var backgroundEffect: BackgroundEffect
 
     var focusTarget: SoundTarget? = null
@@ -138,7 +135,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 this@MainActivity.soundTargetManager = SoundTargetManager(
                     this@MainActivity,
                     soundTargets,
-                    maxMediaPlayers,
+                    configuration.maxMediaPlayers,
                     configuration.secondaryAngle
                 )
 
@@ -279,7 +276,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             lastSignificantSensorValues = sensorValues.copyOf()
 
             // Set new runnable timer
-            uiHandler.postDelayed(idleRunnable, (maxIdleSeconds*1000f).toLong())
+            uiHandler.postDelayed(idleRunnable, (configuration.maxIdleSeconds*1000f).toLong())
 
             return
         }
@@ -288,7 +285,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             for (i in 0..2) {
 
                 // Check whether there is a significant difference from the last recorded values
-                if ((it[i] - sensorValues[i]).absoluteValue > maximumIdleSensorDifference) {
+                if ((it[i] - sensorValues[i]).absoluteValue > configuration.maxIdleSensorDifference) {
 
                     // Cancel the existing runnable
                     uiHandler.removeCallbacks(idleRunnable)
@@ -297,7 +294,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     lastSignificantSensorValues = sensorValues.copyOf()
 
                     // Set new runnable
-                    uiHandler.postDelayed(idleRunnable, (maxIdleSeconds*1000f).toLong())
+                    uiHandler.postDelayed(idleRunnable, (configuration.maxIdleSeconds*1000f).toLong())
 
                     return
                 }
