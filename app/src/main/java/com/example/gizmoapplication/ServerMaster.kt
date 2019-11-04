@@ -6,6 +6,8 @@ import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.coroutines.resume
@@ -26,21 +28,27 @@ class ServerMaster(val context: Context) {
             Request.Method.GET, "${context.resources.getString(R.string.api_url)}/configuration", null,
             Response.Listener { response ->
 
-                // Extract the JSON configuration object
-                val configurationJSON: JSONObject = response.getJSONObject("configuration")
+                // If null then return null
+                if (response.isNull("configuration")) continuation.resume(null)
 
-                // Create configuration object
-                val configuration = Configuration(
-                    configurationJSON.getDouble("primaryAngle").toFloat(),
-                    configurationJSON.getDouble("secondaryAngle").toFloat(),
-                    configurationJSON.getDouble("timeToFocus").toFloat(),
-                    configurationJSON.getInt("maxMediaPlayers"),
-                    configurationJSON.getDouble("maxIdleSensorDifference").toFloat(),
-                    configurationJSON.getDouble("maxIdleSeconds").toFloat()
-                )
+                else {
 
-                // Return configuration
-                continuation.resume(configuration)
+                    // Extract the JSON configuration object
+                    val configurationJSON: JSONObject = response.getJSONObject("configuration")
+
+                    // Create configuration object
+                    val configuration = Configuration(
+                        configurationJSON.getDouble("primaryAngle").toFloat(),
+                        configurationJSON.getDouble("secondaryAngle").toFloat(),
+                        configurationJSON.getDouble("timeToFocus").toFloat(),
+                        configurationJSON.getInt("maxMediaPlayers"),
+                        configurationJSON.getDouble("maxIdleSensorDifference").toFloat(),
+                        configurationJSON.getDouble("maxIdleSeconds").toFloat()
+                    )
+
+                    // Return configuration
+                    continuation.resume(configuration)
+                }
             },
             Response.ErrorListener {
 

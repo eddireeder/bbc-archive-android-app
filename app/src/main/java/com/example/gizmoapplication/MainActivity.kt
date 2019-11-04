@@ -17,7 +17,6 @@ import android.view.WindowManager
 import android.widget.TextView
 import kotlinx.coroutines.*
 import java.lang.Runnable
-import kotlin.coroutines.CoroutineContext
 import kotlin.math.absoluteValue
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
@@ -115,41 +114,54 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             onIdle()
         }
 
-        // Launch a new coroutine and keep a reference to its job
-        val job = GlobalScope.launch {
+        // Launch a new coroutine
+        GlobalScope.launch {
 
-            val serverMaster = ServerMaster(this@MainActivity)
+            // Catch any coroutine exceptions
+            try {
 
-            val fetchConfiguration = async { serverMaster.fetchConfiguration() }
-            val fetchSoundTargets = async { serverMaster.fetchSoundTargets() }
+                // Initialise server master and fetch data
+                val serverMaster = ServerMaster(this@MainActivity)
 
-            val configuration = fetchConfiguration.await()
-            val soundTargets = fetchSoundTargets.await()
+                val fetchConfiguration = async { serverMaster.fetchConfiguration() }
+                val fetchSoundTargets = async { serverMaster.fetchSoundTargets() }
 
-            if (configuration != null && soundTargets != null) {
+                val configuration = fetchConfiguration.await()
+                val soundTargets = fetchSoundTargets.await()
 
-                // Assign to main instance
-                this@MainActivity.configuration = configuration
+                if (configuration != null && soundTargets != null) {
 
-                // Assign to main instance
-                this@MainActivity.soundTargetManager = SoundTargetManager(
-                    this@MainActivity,
-                    soundTargets,
-                    configuration.maxMediaPlayers,
-                    configuration.secondaryAngle
-                )
+                    // Assign to main instance
+                    this@MainActivity.configuration = configuration
 
-                // Set as ready to start
-                readyToStart = true
+                    // Assign to main instance
+                    this@MainActivity.soundTargetManager = SoundTargetManager(
+                        this@MainActivity,
+                        soundTargets,
+                        configuration.maxMediaPlayers,
+                        configuration.secondaryAngle
+                    )
 
-                // Update UI
-                textView.text = resources.getString(R.string.start_message)
-            }
+                    // Set as ready to start
+                    readyToStart = true
 
-            else {
+                    // Update UI
+                    withContext(Dispatchers.Main) {
+                        textView.text = resources.getString(R.string.start_message)
+                    }
 
-                // Update UI
-                textView.text = resources.getString(R.string.connection_error)
+                } else {
+
+                    // Update UI
+                    withContext(Dispatchers.Main) {
+                        textView.text = resources.getString(R.string.connection_error)
+                    }
+                }
+
+            } catch (e: Exception) {
+
+                // Log any exception
+                Log.e("Coroutine", e.toString())
             }
         }
     }
