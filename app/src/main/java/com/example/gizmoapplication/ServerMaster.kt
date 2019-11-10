@@ -72,8 +72,8 @@ class ServerMaster(val context: Context) {
         // Instantiate the RequestQueue
         val queue = Volley.newRequestQueue(context)
 
-        // Retrieve sound JSON from server
-        val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, "${context.resources.getString(R.string.api_url)}/sounds", null,
+        // Retrieve selected sound JSON from server
+        val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, "${context.resources.getString(R.string.api_url)}/sounds/selected", null,
             Response.Listener {response ->
 
                 // Initialise mutable list to return
