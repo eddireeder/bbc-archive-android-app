@@ -31,11 +31,13 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val distanceOutside: Float = 50f
     private val exitForce: Float = 500f
 
-    private val backgroundColour: Int = ContextCompat.getColor(context, R.color.colorBackground)
+    private val backgroundColour: Int = ContextCompat.getColor(context, R.color.background)
+    private val particleColour: Int = ContextCompat.getColor(context, R.color.particle)
+    private val textColour: Int = ContextCompat.getColor(context, R.color.text)
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 50
+    private val numParticles: Int = 100
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
     private val randomForceConstant: Float = 250f
@@ -62,11 +64,11 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         Choreographer.getInstance().postFrameCallback(this)
 
         // Format text
-        textPaint.color = Color.WHITE
+        textPaint.color = textColour
         textPaint.textSize = 50f
 
         // Format the points
-        particlePaint.color = Color.WHITE
+        particlePaint.color = particleColour
         particlePaint.strokeWidth = particleRadius
         particlePaint.strokeCap = Paint.Cap.ROUND
 

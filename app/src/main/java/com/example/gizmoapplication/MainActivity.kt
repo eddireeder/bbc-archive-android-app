@@ -14,6 +14,7 @@ import android.util.Log
 import android.view.MotionEvent
 import android.view.Window
 import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.TextView
 import kotlinx.coroutines.*
 import java.lang.Runnable
@@ -46,6 +47,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var particleView: ParticleView
     private lateinit var sensorData: TextView
     private lateinit var anglesToSounds: TextView
+    private lateinit var logoImageView: ImageView
     private lateinit var textView: TextView
     private lateinit var descriptionTextView: TextView
     private lateinit var categoryTextView: TextView
@@ -458,7 +460,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Set the character to display in the spannable
         metaSpannable.setSpan(
-            ForegroundColorSpan(resources.getColor(R.color.colorText, null)),
+            ForegroundColorSpan(resources.getColor(R.color.text, null)),
             characterIndex, (characterIndex + 1),
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
