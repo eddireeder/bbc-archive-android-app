@@ -12,8 +12,11 @@ import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.MotionEvent
+import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.widget.ImageView
 import android.widget.TextView
 import kotlinx.coroutines.*
@@ -33,6 +36,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var lastSignificantSensorValues: FloatArray? = null
     private lateinit var idleRunnable: Runnable
     private val pausePlayTransitionSeconds: Float = 2f
+    private val logoFadeSeconds: Float = 1f
 
     private lateinit var backgroundEffect: BackgroundEffect
 
@@ -147,10 +151,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     // Set as ready to start
                     readyToStart = true
 
-                    // Update UI
-                    withContext(Dispatchers.Main) {
-                        textView.text = resources.getString(R.string.start_message)
-                    }
+                    // TODO: Start logo pulsating animation
 
                 } else {
 
@@ -180,6 +181,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         categoryTextView = findViewById(R.id.category)
         trackInfoTextView = findViewById(R.id.trackInfo)
         textView = findViewById(R.id.textView)
+        logoImageView = findViewById(R.id.logoImageView)
     }
 
     /**
@@ -266,9 +268,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     override fun onTouchEvent(event: MotionEvent): Boolean {
 
-        // If the action is a press down
-        if (event.action == MotionEvent.ACTION_DOWN) {
-
+        // If the action is a press down, ready to start and particle view is paused
+        if (
+            event.action == MotionEvent.ACTION_DOWN &&
+            readyToStart &&
+            particleView.state == 2
+        ) {
             // Play the experience
             play()
         }
@@ -339,9 +344,28 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Pause the particle view
         particleView.pause()
 
-        // Set the start message after a delay
+        // Execute after a delay (to allow particles to escape)
         uiHandler.postDelayed(Runnable {
-            textView.text = resources.getString(R.string.start_message)
+
+            // Declare animation
+            val fadeIn: Animation = AlphaAnimation(0f, 1f)
+            fadeIn.duration = (logoFadeSeconds*1000).toLong()
+            fadeIn.setAnimationListener(object: Animation.AnimationListener {
+
+                override fun onAnimationStart(animation: Animation?) {}
+
+                override fun onAnimationRepeat(animation: Animation?) {}
+
+                override fun onAnimationEnd(animation: Animation?) {
+
+                    // Add logo to view (similar to display: initial CSS)
+                    logoImageView.visibility = View.VISIBLE
+                }
+            })
+
+            // Start the animation
+            logoImageView.startAnimation(fadeIn)
+
         }, (pausePlayTransitionSeconds*1000).toLong())
 
         // Stop focussing if needed
@@ -361,15 +385,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     fun play() {
 
-        // If the particle view is paused and we're ready to start
-        if (particleView.state == 2 && readyToStart) {
+        // Declare animation
+        val fadeOut: Animation = AlphaAnimation(1f, 0f)
+        fadeOut.duration = (logoFadeSeconds*1000).toLong()
+        fadeOut.setAnimationListener(object: Animation.AnimationListener {
 
-            // Start the particle view
-            particleView.play()
+            override fun onAnimationStart(animation: Animation?) {}
 
-            // Remove the start message
-            textView.text = ""
-        }
+            override fun onAnimationRepeat(animation: Animation?) {}
+
+            override fun onAnimationEnd(animation: Animation?) {
+
+                // Remove logo from view (similar to display: none CSS)
+                logoImageView.visibility = View.GONE
+
+                // Start the particle view
+                particleView.play()
+            }
+        })
+
+        // Start the animation
+        logoImageView.startAnimation(fadeOut)
     }
 
     /**
