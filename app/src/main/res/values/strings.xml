@@ -6,5 +6,5 @@
     <string name="sensor_unavailable">Sensor unavailable</string>
     <string name="retrieving_sounds">Retrieving sounds</string>
     <string name="api_url">http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api</string>
-    <string name="logoContentDescription">The main logo</string>
+    <string name="logo_content_description">The main logo</string>
 </resources>

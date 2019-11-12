@@ -16,8 +16,10 @@
         android:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
 
     <TextView
         android:id="@+id/anglesToSounds"
@@ -52,51 +54,64 @@
         app:layout_constraintVertical_bias="0.558" />
 
     <TextView
-        android:id="@+id/category"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="@font/berthold_akzidenz_grotesk_be_regular"
-        android:textAlignment="center"
-        android:textColor="@android:color/transparent"
-        app:layout_constraintBottom_toTopOf="@+id/trackInfo"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <TextView
         android:id="@+id/description"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
-        android:fontFamily="@font/berthold_akzidenz_grotesk_be_medium"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="32dp"
+        android:fontFamily="@font/akzidenz_grotesk_ce_roman_bold"
         android:textAlignment="center"
         android:textColor="@android:color/transparent"
-        android:textSize="16sp"
+        android:textSize="18sp"
         app:layout_constraintBottom_toTopOf="@+id/category"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
-        android:id="@+id/trackInfo"
-        android:layout_width="wrap_content"
+        android:id="@+id/category"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="64dp"
-        android:fontFamily="@font/berthold_akzidenz_grotesk_be_italic"
+        android:layout_marginStart="32dp"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="32dp"
+        android:fontFamily="@font/akzidenz_grotesk_light_italic"
         android:textAlignment="center"
         android:textColor="@android:color/transparent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toTopOf="@+id/volumeSeekBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <SeekBar
+        android:id="@+id/volumeSeekBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="64dp"
+        android:layout_marginEnd="64dp"
+        android:layout_marginBottom="32dp"
+        android:max="100"
+        android:progress="50"
+        android:progressBackgroundTint="#686369"
+        android:progressDrawable="@drawable/seek_bar"
+        android:progressTint="#00FFFFFF"
+        android:thumb="@drawable/seek_thumb"
+        android:thumbTint="#99A2B1"
+        app:layout_constraintBottom_toBottomOf="@+id/particleView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
     <ImageView
         android:id="@+id/logoImageView"
         android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_height="50dp"
         android:layout_marginStart="64dp"
         android:layout_marginEnd="64dp"
-        android:contentDescription="@string/logoContentDescription"
+        android:contentDescription="@string/logo_content_description"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:srcCompat="@drawable/ic_sonosynthesiser_logo" />

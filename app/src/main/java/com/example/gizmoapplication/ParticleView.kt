@@ -37,12 +37,12 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 100
+    private val numParticles: Int = 50
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
     private val randomForceConstant: Float = 250f
     private val centreForceLowerLimit: Float = 500f
-    private val centreForceUpperLimit: Float = 2000f
+    private val centreForceUpperLimit: Float = 1000f
 
     private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
     private var centrePosition: FloatArray? = null
@@ -118,8 +118,8 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
 
-        // Store the view's centre
-        centrePosition = floatArrayOf(width/2f, height/2f)
+        // Calculate where the centre position should be (between the description and top of phone)
+        centrePosition = floatArrayOf(width/2f, (height/2f) - 200f)
 
         // Initialise particles at random positions around the outside with random velocity and force
         for (i in particleArray.indices) {
@@ -276,7 +276,7 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      * Update view based on the state being PLAYING
      */
     fun playingUpdate(deltaTime: Float) {
-/*
+
         // Calculate the centre force
         val centreForce: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
 
@@ -293,9 +293,6 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         } else {
             centreForceLowerLimit
         }
-
- */
-        val centreForce: Float = centreForceLowerLimit
 
         for (particle in particleArray) {
             particle?.let {

@@ -6,6 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import androidx.appcompat.app.AppCompatActivity
 import android.hardware.SensorManager
+import android.media.AudioManager
 import android.os.*
 import android.text.Spannable
 import android.text.SpannableString
@@ -18,6 +19,7 @@ import android.view.WindowManager
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.widget.ImageView
+import android.widget.SeekBar
 import android.widget.TextView
 import kotlinx.coroutines.*
 import java.lang.Runnable
@@ -29,7 +31,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     lateinit var soundTargetManager: SoundTargetManager
 
     private var readyToStart: Boolean = false
-    val debugMode: Boolean = true
+    val debugMode: Boolean = false
+
+    private lateinit var audioManager: AudioManager
+    private lateinit var volumeSeekBar: SeekBar
 
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
@@ -44,6 +49,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     var isFocussed: Boolean = false
     private lateinit var vibrator: Vibrator
     private val uiHandler: Handler = Handler()
+    private val secondsPreFocus: Float = 2f
     private lateinit var focusTimerRunnable: Runnable
     private var characterIndicesToDisplay: MutableList<Int> = mutableListOf()
     private var focusCharacterDelay: Float = 0f
@@ -55,7 +61,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var textView: TextView
     private lateinit var descriptionTextView: TextView
     private lateinit var categoryTextView: TextView
-    private lateinit var trackInfoTextView: TextView
     private lateinit var descriptionText: String
     private lateinit var categoryText: String
     private lateinit var trackInfoText: String
@@ -120,6 +125,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             onIdle()
         }
 
+        // Initialise audio manager
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        val maxVolume: Int = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val curVolume: Int = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+        volumeSeekBar.max = maxVolume
+        volumeSeekBar.progress = curVolume
+        volumeSeekBar.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, progress, 0)
+            }
+        })
+
+
         // Launch a new coroutine
         GlobalScope.launch {
 
@@ -179,9 +204,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         anglesToSounds = findViewById(R.id.anglesToSounds)
         descriptionTextView = findViewById(R.id.description)
         categoryTextView = findViewById(R.id.category)
-        trackInfoTextView = findViewById(R.id.trackInfo)
         textView = findViewById(R.id.textView)
         logoImageView = findViewById(R.id.logoImageView)
+        volumeSeekBar = findViewById(R.id.volumeSeekBar)
     }
 
     /**
@@ -360,6 +385,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                     // Add logo to view (similar to display: initial CSS)
                     logoImageView.visibility = View.VISIBLE
+
+                    // Set ready to start
+                    readyToStart = true
                 }
             })
 
@@ -384,6 +412,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      * Attempts to play the whole experience
      */
     fun play() {
+
+        // Set ready to start
+        readyToStart = false
 
         // Declare animation
         val fadeOut: Animation = AlphaAnimation(1f, 0f)
@@ -463,7 +494,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         focusCharacterDelay = configuration.timeToFocus/characterIndicesToDisplay.size
 
         // Start displaying characters
-        uiHandler.postDelayed(focusTimerRunnable, 0)
+        uiHandler.postDelayed(focusTimerRunnable, (secondsPreFocus*1000f).toLong())
     }
 
     /**
@@ -483,7 +514,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Update text views
         descriptionTextView.text = ""
         categoryTextView.text = ""
-        trackInfoTextView.text = ""
     }
 
     /**
@@ -509,10 +539,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         categoryTextView.text = metaSpannable.subSequence(
             descriptionText.length,
             descriptionText.length + categoryText.length
-        )
-        trackInfoTextView.text = metaSpannable.subSequence(
-            descriptionText.length + categoryText.length,
-            metaSpannable.lastIndex
         )
 
         // If there are still characters to display

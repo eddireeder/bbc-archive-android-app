@@ -3,4 +3,8 @@
     <color name="background">#004966</color>
     <color name="text">#99a2b1</color>
     <color name="particle">#f3c722</color>
+    <color name="seek_bar_background">#686369</color>
+    <color name="seek_bar_thumb">#99A2B1</color>
+    <color name="seek_bar_progress">#686369</color>
+    <color name="seek_bar_secondary_progress">#686369</color>
 </resources>

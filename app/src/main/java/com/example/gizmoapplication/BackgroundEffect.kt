@@ -23,7 +23,7 @@ class BackgroundEffect (private val context: Context) {
     fun startSilently() {
 
         // Start playing background sound resource
-        context.resources.openRawResourceFd(R.raw.soundbed)?.let { assetFileDescriptor ->
+        context.resources.openRawResourceFd(R.raw.playing_background)?.let { assetFileDescriptor ->
             mediaPlayer.run {
                 setDataSource(assetFileDescriptor)
                 prepareAsync()
