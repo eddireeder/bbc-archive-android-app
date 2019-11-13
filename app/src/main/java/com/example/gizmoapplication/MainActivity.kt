@@ -1,5 +1,7 @@
 package com.example.gizmoapplication
 
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -18,6 +20,7 @@ import android.view.Window
 import android.view.WindowManager
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -144,7 +147,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         })
 
-
         // Launch a new coroutine
         GlobalScope.launch {
 
@@ -176,7 +178,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     // Set as ready to start
                     readyToStart = true
 
-                    // TODO: Start logo pulsating animation
+                    // Start pulsating logo
+                    startPulsatingLogo()
 
                 } else {
 
@@ -386,6 +389,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     // Add logo to view (similar to display: initial CSS)
                     logoImageView.visibility = View.VISIBLE
 
+                    // Start animating logo
+                    startPulsatingLogo()
+
                     // Set ready to start
                     readyToStart = true
                 }
@@ -563,5 +569,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Vibrate the phone
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+    }
+
+    /**
+     * Begins logo animation
+     */
+    fun startPulsatingLogo() {
+
+        val pulsateAnimation: Animation = AnimationUtils.loadAnimation(this, R.anim.pulsate)
+        logoImageView.startAnimation(pulsateAnimation)
     }
 }
