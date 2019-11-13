@@ -37,14 +37,21 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 50
+    private val numParticles: Int = 25
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
+    private val maxSteeringForce: Float = 300f
     private val randomForceConstant: Float = 250f
-    private val centreForceLowerLimit: Float = 500f
-    private val centreForceUpperLimit: Float = 1000f
 
-    private val particleArray: Array<Particle?> = arrayOfNulls<Particle>(numParticles)
+    private val desiredSeparation: Float = 100f
+    private val neighbourDistance: Float = 200f
+    private val separationWeightLowerLimit: Float = 1.5f
+    private val separationWeightUpperLimit: Float = 1f
+    private val alignmentWeight: Float = 1f
+    private val cohesionWeight: Float = 1f
+    private val centreSeekingWeight: Float = 0.5f
+
+    private val particleArray: Array<Particle?> = arrayOfNulls(numParticles)
     private var centrePosition: FloatArray? = null
 
     private var previousFrameTimeNanos: Long = System.nanoTime()
@@ -277,66 +284,258 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      */
     fun playingUpdate(deltaTime: Float) {
 
-        // Calculate the centre force
-        val centreForce: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
+        // Calculate the separation weight
+        val separationWeight: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
 
             // Create a variable to reference closest sound for readibility
             val closestSoundTarget: SoundTarget = mainActivity.soundTargetManager.orderedSoundTargets[0]
 
             if (closestSoundTarget.degreesFromAim < mainActivity.configuration.primaryAngle) {
-                centreForceUpperLimit
+                separationWeightUpperLimit
             } else if (closestSoundTarget.degreesFromAim < mainActivity.configuration.secondaryAngle) {
-                centreForceLowerLimit + ((mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle - closestSoundTarget.degreesFromAim)/(mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle))*(centreForceUpperLimit - centreForceLowerLimit)
+                separationWeightLowerLimit + ((mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle - closestSoundTarget.degreesFromAim)/(mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle))*(separationWeightUpperLimit - separationWeightLowerLimit)
             } else {
-                centreForceLowerLimit
+                separationWeightLowerLimit
             }
         } else {
-            centreForceLowerLimit
+            separationWeightLowerLimit
         }
 
         for (particle in particleArray) {
             particle?.let {
 
-                // Calculate vector to centre
-                val toCentre: FloatArray = floatArrayOf(
-                    centrePosition!![0] - it.position[0],
-                    centrePosition!![1] - it.position[1]
-                )
+                // Calculate forces from 3 boids rules
+                val separationForce: FloatArray = separation(it)
+                val alignmentForce: FloatArray = alignment(it)
+                val cohesionForce: FloatArray = cohesion(it)
 
-                // Calculate magnitude
-                val toCentreMagnitude: Float = sqrt(toCentre[0].pow(2) + toCentre[1].pow(2))
+                // Calculate force from seeking the centre
+                val centreSeekingForce: FloatArray = seek(it, centrePosition!!)
 
-                // Compute acceleration using centre force and random force
+                // Calculate acceleration from weighted forces
                 val acceleration: FloatArray = floatArrayOf(
-                    (toCentre[0]/toCentreMagnitude)*centreForce + it.randomForce[0],
-                    (toCentre[1]/toCentreMagnitude)*centreForce + it.randomForce[1]
+                    separationForce[0]*separationWeight + alignmentForce[0]*alignmentWeight + cohesionForce[0]*cohesionWeight + centreSeekingForce[0]*centreSeekingWeight,
+                    separationForce[1]*separationWeight + alignmentForce[1]*alignmentWeight + cohesionForce[1]*cohesionWeight + centreSeekingForce[1]*centreSeekingWeight
                 )
 
-                // Compute the final velocity
-                val finalVelocity: FloatArray = floatArrayOf(
+                // Compute the new velocity
+                val newVelocity: FloatArray = floatArrayOf(
                     it.velocity[0] + acceleration[0]*deltaTime,
                     it.velocity[1] + acceleration[1]*deltaTime
                 )
 
                 // Limit magnitude to max speed
-                val finalVelocityMagnitude = sqrt(finalVelocity[0].pow(2) + finalVelocity[1].pow(2))
-
+                val finalVelocityMagnitude = sqrt(newVelocity[0].pow(2) + newVelocity[1].pow(2))
                 if (finalVelocityMagnitude > maxSpeed) {
-                    finalVelocity[0] = (finalVelocity[0]/finalVelocityMagnitude)*maxSpeed
-                    finalVelocity[1] = (finalVelocity[1]/finalVelocityMagnitude)*maxSpeed
+                    newVelocity[0] = (newVelocity[0]/finalVelocityMagnitude)*maxSpeed
+                    newVelocity[1] = (newVelocity[1]/finalVelocityMagnitude)*maxSpeed
                 }
 
-                // Calculate new circle position
+                // Calculate new position
                 val newPosition: FloatArray = floatArrayOf(
-                    it.position[0] + ((it.velocity[0] + finalVelocity[0])/2)*deltaTime,
-                    it.position[1] + ((it.velocity[1] + finalVelocity[1])/2)*deltaTime
+                    it.position[0] + ((it.velocity[0] + newVelocity[0])/2)*deltaTime,
+                    it.position[1] + ((it.velocity[1] + newVelocity[1])/2)*deltaTime
                 )
 
-                // Replace velocity and position with new values
-                it.velocity = finalVelocity
+                // Update velocity and position
+                it.velocity = newVelocity
                 it.position = newPosition
             }
         }
+    }
+
+    /**
+     * Calculate force for the seperation step
+     */
+    fun separation(currentParticle: Particle): FloatArray {
+
+        var steerVector: FloatArray = floatArrayOf(0f, 0f)
+        var count: Int = 0
+
+        for (p in particleArray) {
+            p?.let {
+
+                // If not the current particle
+                if (p != currentParticle) {
+
+                    // Calculate the distance between them
+                    val distance: Float = distanceBetween(p.position, currentParticle.position)
+
+                    // If less than desired separation
+                    if (distance < desiredSeparation) {
+
+                        // Calculate the direction vector pointing away from neighbour
+                        val directionAway: FloatArray = normalise(floatArrayOf(
+                            currentParticle.position[0] - p.position[0],
+                            currentParticle.position[1] - p.position[1]
+                        ))
+
+                        // Weight by distance and add to steering vector
+                        steerVector[0] += directionAway[0]/distance
+                        steerVector[1] += directionAway[1]/distance
+
+                        // Increment count
+                        count++
+                    }
+                }
+            }
+        }
+
+        // Divide by count if necessary
+        if (count > 0) {
+            steerVector[0] = steerVector[0]/count
+            steerVector[1] = steerVector[1]/count
+
+            // If our steer vector has a positive magnitude
+            val magnitude: Float = calculateMagnitude(steerVector)
+            if (magnitude > 0) {
+
+                // Set the desired velocity as the steer vector with max speed
+                val desiredVelocity: FloatArray = floatArrayOf(
+                    (steerVector[0]/magnitude)*maxSpeed,
+                    (steerVector[1]/magnitude)*maxSpeed
+                )
+
+                // Calculate steering force
+                return calculateSteeringForce(currentParticle.velocity, desiredVelocity)
+            }
+        }
+
+        // No force
+        return floatArrayOf(0f, 0f)
+    }
+
+    /**
+     * Calculate force for the alignment step
+     */
+    fun alignment(currentParticle: Particle): FloatArray {
+
+        val averageVelocity: FloatArray = floatArrayOf(0f, 0f)
+        var count: Int = 0
+
+        for (p in particleArray) {
+            p?.let {
+
+                // If not the current particle
+                if (p != currentParticle) {
+
+                    // If particle is a neighbour
+                    if (distanceBetween(p.position, currentParticle.position) < neighbourDistance) {
+
+                        // Add to average velocity
+                        averageVelocity[0] += p.velocity[0]
+                        averageVelocity[1] += p.velocity[1]
+
+                        // Increment count
+                        count++
+                    }
+                }
+            }
+        }
+
+        // If we actually had neighbours
+        if (count > 0) {
+
+            // Divide by number of neighbours
+            averageVelocity[0] = averageVelocity[0]/count
+            averageVelocity[1] = averageVelocity[1]/count
+
+            // Set desired velocity as the average velocity with max speed
+            val desiredVelocity: FloatArray = normalise(averageVelocity)
+            desiredVelocity[0] = desiredVelocity[0]*maxSpeed
+            desiredVelocity[1] = desiredVelocity[1]*maxSpeed
+
+            // Calculate steering force
+            return calculateSteeringForce(currentParticle.velocity, desiredVelocity)
+        }
+
+        // No force
+        return floatArrayOf(0f, 0f)
+    }
+
+    /**
+     * Calculate force for the cohesion step
+     */
+    fun cohesion(currentParticle: Particle): FloatArray {
+
+        val perceivedCentre: FloatArray = floatArrayOf(0f, 0f)
+        var count: Int = 0
+
+        for (p in particleArray) {
+            p?.let {
+
+                // If not the current particle
+                if (p != currentParticle) {
+
+                    // If particle is a neighbour
+                    if (distanceBetween(p.position, currentParticle.position) < neighbourDistance) {
+
+                        // Add position to perceived centre
+                        perceivedCentre[0] += p.position[0]
+                        perceivedCentre[1] += p.position[1]
+
+                        // Increment count
+                        count++
+                    }
+                }
+            }
+        }
+
+        // If we do have neighbours
+        if (count > 0) {
+
+            // Divide by number of neighbours
+            perceivedCentre[0] = perceivedCentre[0]/count
+            perceivedCentre[1] = perceivedCentre[1]/count
+
+            // Return steering force towards position
+            return seek(currentParticle, perceivedCentre)
+
+        } else {
+
+            // No force
+            return floatArrayOf(0f, 0f)
+        }
+    }
+
+    /**
+     * Calculate steering force to seek a target
+     * Steering force = desired velocity - current velocity
+     */
+    fun seek(currentParticle: Particle, target: FloatArray): FloatArray {
+
+        val desiredVelocity: FloatArray = normalise(floatArrayOf(
+            target[0] - currentParticle.position[0],
+            target[1] - currentParticle.position[1]
+        ))
+
+        // Limit desired velocity to max speed
+        desiredVelocity[0] = desiredVelocity[0]*maxSpeed
+        desiredVelocity[1] = desiredVelocity[1]*maxSpeed
+
+        // Calculate steering force
+        return calculateSteeringForce(currentParticle.velocity, desiredVelocity)
+    }
+
+    /**
+     * Helper function to calculate steering force for a desired velocity
+     */
+    fun calculateSteeringForce(currentVelocity: FloatArray, desiredVelocity: FloatArray): FloatArray {
+
+        // Calculate steering force
+        val steerForce: FloatArray = floatArrayOf(
+            desiredVelocity[0] - currentVelocity[0],
+            desiredVelocity[1] - currentVelocity[1]
+        )
+
+        // Limit to max steering force
+        val magnitude = calculateMagnitude(steerForce)
+        return if (magnitude > maxSteeringForce) {
+            floatArrayOf(
+                (steerForce[0]/magnitude)*maxSteeringForce,
+                (steerForce[1]/magnitude)*maxSteeringForce
+            )
+        } else steerForce
     }
 
     /**
@@ -395,15 +594,35 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     }
 
     /**
-     * A helper function to generate a random direction/unit vector
+     * A helper function to calculate the magnitude of a vector
      */
-    fun generateRandomUnitVector(): FloatArray {
+    fun calculateMagnitude(vector: FloatArray) =
+        sqrt(vector[0].pow(2) + vector[1].pow(2))
 
-        val vector: FloatArray = floatArrayOf(Random.nextFloat() - 0.5f, Random.nextFloat() - 0.5f)
+    /**
+     * A helper function to normalise a vector
+     */
+    fun normalise(vector: FloatArray): FloatArray {
+
         val magnitude: Float = sqrt(vector[0].pow(2) + vector[1].pow(2))
         return floatArrayOf(
             vector[0]/magnitude,
             vector[1]/magnitude
         )
     }
+
+    /**
+     * A helper function to generate a random direction/unit vector
+     */
+    fun generateRandomUnitVector(): FloatArray {
+
+        val vector: FloatArray = floatArrayOf(Random.nextFloat() - 0.5f, Random.nextFloat() - 0.5f)
+        return normalise(vector)
+    }
+
+    /**
+     * A helper function to calculate the distance between two position vectors
+     */
+    fun distanceBetween(position1: FloatArray, position2: FloatArray): Float =
+        sqrt((position2[0] - position1[0]).pow(2) + (position2[1] - position1[1]).pow(2))
 }
