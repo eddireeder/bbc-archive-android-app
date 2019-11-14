@@ -43,13 +43,13 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val maxSteeringForce: Float = 300f
     private val randomForceConstant: Float = 250f
 
-    private val desiredSeparation: Float = 50f
+    private val desiredSeparation: Float = 100f
     private val neighbourDistance: Float = 200f
     private val separationWeight: Float = 2f
     private val alignmentWeight: Float = 1f
     private val cohesionWeight: Float = 0.5f
-    private val borderRadiusUpperLimit: Float = 10f
-    private val borderRadiusLowerLimit: Float = 150f
+    private val borderRadiusUpperLimit: Float = 50f
+    private val borderRadiusLowerLimit: Float = 400f
     private val borderForceWeight: Float = 5f
 
     private val particleArray: Array<Particle?> = arrayOfNulls(numParticles)

@@ -288,6 +288,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // Set the background volume
+        Log.d("Background volume", calculateBackgroundVolume().toString())
         backgroundEffect.setVolume(calculateBackgroundVolume())
     }
 

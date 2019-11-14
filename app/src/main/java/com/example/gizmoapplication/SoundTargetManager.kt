@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.MediaStore
 import android.text.SpannableString
 import android.util.Log
+import kotlin.math.pow
 
 class SoundTargetManager(
     context: Context,
@@ -116,8 +117,15 @@ class SoundTargetManager(
                     }
                 } else {
                     // Volume relative to distance away (up to 80%)
-                    (0.8f - 0.8f * (soundTarget.degreesFromAim/secondaryAngle))
+                    //(0.8f - 0.8f * (soundTarget.degreesFromAim/secondaryAngle))
+
+                    // Volume from 0 -> 80% modelled by y=2^(4(x-1))
+                    val x: Float = 1f - (soundTarget.degreesFromAim/secondaryAngle)
+                    val y: Float = 2f.pow(4f*(x - 1f))
+                    0.8f*y
                 }
+
+                Log.d("Sound volume", volume.toString())
 
                 // Set the media player volume
                 setVolume(volume, volume)
