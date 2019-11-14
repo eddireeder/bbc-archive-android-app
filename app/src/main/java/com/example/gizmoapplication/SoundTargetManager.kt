@@ -119,10 +119,9 @@ class SoundTargetManager(
                     // Volume relative to distance away (up to 80%)
                     //(0.8f - 0.8f * (soundTarget.degreesFromAim/secondaryAngle))
 
-                    // Volume from 0 -> 80% modelled by y=2^(4(x-1))
+                    // Volume from 0 -> 100% modelled by y=2^(4(x-1))
                     val x: Float = 1f - (soundTarget.degreesFromAim/secondaryAngle)
-                    val y: Float = 2f.pow(4f*(x - 1f))
-                    0.8f*y
+                    2f.pow(4f*(x - 1f))
                 }
 
                 Log.d("Sound volume", volume.toString())

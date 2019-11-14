@@ -181,6 +181,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     // Start pulsating logo
                     startPulsatingLogo()
 
+                    // Start playing idle background at full volume
+                    backgroundEffect.startIdleBackground()
+
                 } else {
 
                     // Update UI
@@ -408,8 +411,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             stopFocussing()
         }
 
-        // Set the volume of background effect to 0
-        backgroundEffect.setVolume(0f)
+        // Change background effect to idle (at full volume)
+        backgroundEffect.startIdleBackground()
 
         // Set the volume of each media player in pool to 0
         soundTargetManager.setVolumeForAllSoundTargets(0f)
@@ -444,6 +447,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Start the animation
         logoImageView.startAnimation(fadeOut)
+
+        // Start the playing background effect
+        backgroundEffect.startPlayingBackground()
     }
 
     /**
