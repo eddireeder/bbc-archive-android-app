@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     var isFocussed: Boolean = false
     private lateinit var vibrator: Vibrator
     private val uiHandler: Handler = Handler()
-    private val secondsPreFocus: Float = 2f
+    private val secondsPreFocus: Float = 1f
     private lateinit var focusTimerRunnable: Runnable
     private var characterIndicesToDisplay: MutableList<Int> = mutableListOf()
     private var focusCharacterDelay: Float = 0f

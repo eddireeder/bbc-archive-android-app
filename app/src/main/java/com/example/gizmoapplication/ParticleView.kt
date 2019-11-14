@@ -37,19 +37,20 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 25
+    private val numParticles: Int = 50
     private val particleRadius: Float = 10f
     private val maxSpeed: Float = 300f
     private val maxSteeringForce: Float = 300f
     private val randomForceConstant: Float = 250f
 
-    private val desiredSeparation: Float = 100f
+    private val desiredSeparation: Float = 50f
     private val neighbourDistance: Float = 200f
-    private val separationWeightLowerLimit: Float = 1.5f
-    private val separationWeightUpperLimit: Float = 1f
+    private val separationWeight: Float = 2f
     private val alignmentWeight: Float = 1f
-    private val cohesionWeight: Float = 1f
-    private val centreSeekingWeight: Float = 0.5f
+    private val cohesionWeight: Float = 0.5f
+    private val borderRadiusUpperLimit: Float = 10f
+    private val borderRadiusLowerLimit: Float = 150f
+    private val borderForceWeight: Float = 5f
 
     private val particleArray: Array<Particle?> = arrayOfNulls(numParticles)
     private var centrePosition: FloatArray? = null
@@ -284,21 +285,21 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
      */
     fun playingUpdate(deltaTime: Float) {
 
-        // Calculate the separation weight
-        val separationWeight: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
+        // Calculate the border radius
+        val borderRadius: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
 
             // Create a variable to reference closest sound for readibility
             val closestSoundTarget: SoundTarget = mainActivity.soundTargetManager.orderedSoundTargets[0]
 
             if (closestSoundTarget.degreesFromAim < mainActivity.configuration.primaryAngle) {
-                separationWeightUpperLimit
+                borderRadiusUpperLimit
             } else if (closestSoundTarget.degreesFromAim < mainActivity.configuration.secondaryAngle) {
-                separationWeightLowerLimit + ((mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle - closestSoundTarget.degreesFromAim)/(mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle))*(separationWeightUpperLimit - separationWeightLowerLimit)
+                borderRadiusLowerLimit + ((mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle - closestSoundTarget.degreesFromAim)/(mainActivity.configuration.secondaryAngle - mainActivity.configuration.primaryAngle))*(borderRadiusUpperLimit - borderRadiusLowerLimit)
             } else {
-                separationWeightLowerLimit
+                borderRadiusLowerLimit
             }
         } else {
-            separationWeightLowerLimit
+            borderRadiusLowerLimit
         }
 
         for (particle in particleArray) {
@@ -309,13 +310,13 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
                 val alignmentForce: FloatArray = alignment(it)
                 val cohesionForce: FloatArray = cohesion(it)
 
-                // Calculate force from seeking the centre
-                val centreSeekingForce: FloatArray = seek(it, centrePosition!!)
+                // Calculate border force
+                val borderForce: FloatArray = borderForce(it, borderRadius)
 
                 // Calculate acceleration from weighted forces
                 val acceleration: FloatArray = floatArrayOf(
-                    separationForce[0]*separationWeight + alignmentForce[0]*alignmentWeight + cohesionForce[0]*cohesionWeight + centreSeekingForce[0]*centreSeekingWeight,
-                    separationForce[1]*separationWeight + alignmentForce[1]*alignmentWeight + cohesionForce[1]*cohesionWeight + centreSeekingForce[1]*centreSeekingWeight
+                    separationForce[0]*separationWeight + alignmentForce[0]*alignmentWeight + cohesionForce[0]*cohesionWeight + borderForce[0]*borderForceWeight,
+                    separationForce[1]*separationWeight + alignmentForce[1]*alignmentWeight + cohesionForce[1]*cohesionWeight + borderForce[1]*borderForceWeight
                 )
 
                 // Compute the new velocity
@@ -515,6 +516,18 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
 
         // Calculate steering force
         return calculateSteeringForce(currentParticle.velocity, desiredVelocity)
+    }
+
+    /**
+     * Calculate force to keep particles within a border
+     */
+    fun borderForce(currentParticle: Particle, borderRadius: Float): FloatArray {
+
+        return if (distanceBetween(currentParticle.position, centrePosition!!) > borderRadius) {
+            seek(currentParticle, centrePosition!!)
+        } else {
+            floatArrayOf(0f, 0f)
+        }
     }
 
     /**
