@@ -13,8 +13,7 @@ class SoundTarget (
     val category: String,
     val cdNumber: String,
     val cdName: String,
-    val trackNumber: Int,
-    val resID: Int
+    val trackNumber: Int
 ) {
 
     var degreesFromAim: Float = 180f

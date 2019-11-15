@@ -103,16 +103,8 @@ class ServerMaster(val context: Context) {
                     val cdName: String = soundJSON.getString("cdName")
                     val trackNumber: Int = soundJSON.getInt("trackNumber")
 
-                    // Check resource exists and get id
-                    val resID: Int = context.resources.getIdentifier(
-                        "sound_${location.split(".")[0]}",
-                        "raw",
-                        context.packageName
-                    )
-                    if (resID == 0) continue
-
                     // Create sound target object and add to list
-                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber, resID))
+                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber))
                 }
 
                 // Resume suspended function with result

@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.MediaStore
 import android.text.SpannableString
 import android.util.Log
+import java.io.File
 import kotlin.math.pow
 
 class SoundTargetManager(
@@ -84,6 +85,7 @@ class SoundTargetManager(
                     orderedSoundTargets[i].mediaPlayerWithState = mediaPlayerWithState
 
                     // Start playing sound resource
+                    /*
                     context.resources.openRawResourceFd(orderedSoundTargets[i].resID)
                         ?.let { assetFileDescriptor ->
                             mediaPlayerWithState.mediaPlayer.run {
@@ -91,6 +93,13 @@ class SoundTargetManager(
                                 prepareAsync()
                             }
                         }
+
+                     */
+                    val file: File = File(context.getExternalFilesDir(null), "sound_${orderedSoundTargets[i].location}")
+                    mediaPlayerWithState.mediaPlayer.run {
+                        setDataSource(file.toString())
+                        prepareAsync()
+                    }
                 }
             }
         }

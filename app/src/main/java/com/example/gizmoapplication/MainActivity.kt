@@ -1,8 +1,10 @@
 package com.example.gizmoapplication
 
+import android.Manifest
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -24,6 +26,8 @@ import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import java.lang.Runnable
 import kotlin.math.absoluteValue
@@ -61,7 +65,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var sensorData: TextView
     private lateinit var anglesToSounds: TextView
     private lateinit var logoImageView: ImageView
-    private lateinit var textView: TextView
+    lateinit var textView: TextView
     private lateinit var descriptionTextView: TextView
     private lateinit var categoryTextView: TextView
     private lateinit var descriptionText: String
@@ -147,6 +151,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             }
         })
 
+        // Request external storage read and write permissions
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 1)
+        }
+
         // Launch a new coroutine
         GlobalScope.launch {
 
@@ -164,25 +176,43 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                 if (configuration != null && soundTargets != null) {
 
-                    // Assign to main instance
-                    this@MainActivity.configuration = configuration
+                    if (soundTargets.size == 0) {
 
-                    // Assign to main instance
-                    this@MainActivity.soundTargetManager = SoundTargetManager(
-                        this@MainActivity,
-                        soundTargets,
-                        configuration.maxMediaPlayers,
-                        configuration.secondaryAngle
-                    )
+                        // Update UI
+                        withContext(Dispatchers.Main) {
+                            textView.text = resources.getString(R.string.no_sound_targets)
+                        }
 
-                    // Set as ready to start
-                    readyToStart = true
+                    } else {
 
-                    // Start pulsating logo
-                    startPulsatingLogo()
+                        // Assign to main instance
+                        this@MainActivity.configuration = configuration
 
-                    // Start playing idle background at full volume
-                    backgroundEffect.startIdleBackground()
+                        // Assign to main instance
+                        this@MainActivity.soundTargetManager = SoundTargetManager(
+                            this@MainActivity,
+                            soundTargets,
+                            configuration.maxMediaPlayers,
+                            configuration.secondaryAngle
+                        )
+
+                        Log.i("Sound files", "Initialising soundfilemaster")
+
+                        // Initialise sound file master and attempt to update sound files
+                        val soundFileMaster = SoundFileMaster(this@MainActivity)
+                        async { soundFileMaster.updateSoundFilesToMatch(soundTargets) }.await()
+
+                        Log.i("Sound files", "All done")
+
+                        // Set as ready to start
+                        readyToStart = true
+
+                        // Start pulsating logo
+                        startPulsatingLogo()
+
+                        // Start playing idle background at full volume
+                        backgroundEffect.startIdleBackground()
+                    }
 
                 } else {
 
@@ -450,6 +480,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Start the playing background effect
         backgroundEffect.startPlayingBackground()
+
     }
 
     /**
