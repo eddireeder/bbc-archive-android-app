@@ -21,7 +21,7 @@ class SoundFileMaster(val context: Context) {
     /**
      * Method updates sound files in storage to match the given list of sounds
      */
-    suspend fun updateSoundFilesToMatch(soundTargets: MutableList<SoundTarget>) {
+    suspend fun updateSoundFilesToMatch(sounds: MutableList<Sound>) {
 
         // Retrieve external storage directory
         val dir: File? = context.getExternalFilesDir(null)
@@ -42,10 +42,10 @@ class SoundFileMaster(val context: Context) {
                 // Check whether file exists in new list (sound targets)
                 var existsInSoundTargets = false
 
-                for (soundTarget in soundTargets) {
+                for (sound in sounds) {
 
                     // If file's name matches
-                    if (file.name == "sound_${soundTarget.location}") {
+                    if (file.name == "sound_${sound.location}") {
 
                         println("${file.name} is selected, not deleting")
 
@@ -62,13 +62,13 @@ class SoundFileMaster(val context: Context) {
             }
 
             // Download any sounds that don't exist in internal storage directory
-            for (soundTarget in soundTargets) {
+            for (sound in sounds) {
 
                 listFilesInExternalStorage()
 
                 var existsInStorage = false
                 for (file in files) {
-                    if (file.name == "sound_${soundTarget.location}") {
+                    if (file.name == "sound_${sound.location}") {
                         existsInStorage = true
                         break
                     }
@@ -76,16 +76,16 @@ class SoundFileMaster(val context: Context) {
 
                 if (!existsInStorage) {
 
-                    println("${soundTarget.location} doesn't exist, downloading")
+                    println("${sound.location} doesn't exist, downloading")
 
                     // Update UI
                     withContext(Dispatchers.Main) {
-                        mainActivity.textView.text = "Downloading ${soundTarget.location}"
+                        mainActivity.textView.text = "Downloading ${sound.location}"
                     }
 
-                    downloadAndSaveFile(
-                        "${baseUrl}/${soundTarget.location}",
-                        "sound_${soundTarget.location}"
+                    val success: Boolean = downloadAndSaveFile(
+                        "${baseUrl}/${sound.location}",
+                        "sound_${sound.location}"
                     )
                 }
             }

@@ -65,19 +65,19 @@ class ServerMaster(val context: Context) {
     }
 
     /**
-     * Function to get an array of sound targets from the server
+     * Function to get an array of sounds from the server
      */
-    suspend fun fetchSoundTargets(): MutableList<SoundTarget>? = suspendCoroutine { continuation ->
+    suspend fun fetchSounds(): MutableList<Sound>? = suspendCoroutine { continuation ->
 
         // Instantiate the RequestQueue
         val queue = Volley.newRequestQueue(context)
 
         // Retrieve selected sound JSON from server
-        val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, "${context.resources.getString(R.string.api_url)}/sounds/selected", null,
+        val jsonObjectRequest = JsonObjectRequest(Request.Method.GET, "${context.resources.getString(R.string.api_url)}/sounds", null,
             Response.Listener {response ->
 
                 // Initialise mutable list to return
-                val soundTargets: MutableList<SoundTarget> = mutableListOf()
+                val sounds: MutableList<Sound> = mutableListOf()
 
                 // Extract the JSON array of sounds
                 val soundJSONArray: JSONArray = response.getJSONArray("sounds")
@@ -88,27 +88,27 @@ class ServerMaster(val context: Context) {
                     // Extract the sound JSON
                     val soundJSON: JSONObject = soundJSONArray.getJSONObject(i - 1)
 
-                    // Extract the sound direction as a float array
-                    val directionVector: FloatArray = floatArrayOf(
-                        soundJSON.getDouble("directionX").toFloat(),
-                        soundJSON.getDouble("directionY").toFloat(),
-                        soundJSON.getDouble("directionZ").toFloat()
+                    val sound: Sound = Sound(
+                        soundJSON.getInt("id"),
+                        if (soundJSON.isNull("directionX")) null else soundJSON.getDouble("directionX").toFloat(),
+                        if (soundJSON.isNull("directionY")) null else soundJSON.getDouble("directionY").toFloat(),
+                        if (soundJSON.isNull("directionZ")) null else soundJSON.getDouble("directionZ").toFloat(),
+                        soundJSON.getString("location"),
+                        soundJSON.getString("description"),
+                        soundJSON.getString("category"),
+                        soundJSON.getString("cdNumber"),
+                        soundJSON.getString("cdName"),
+                        soundJSON.getInt("trackNumber"),
+                        soundJSON.getBoolean("selected"),
+                        soundJSON.getBoolean("onPhone")
                     )
 
-                    // Retrieve the rest of the sound data
-                    val location: String = soundJSON.getString("location")
-                    val description: String = soundJSON.getString("description")
-                    val category: String = soundJSON.getString("category")
-                    val cdNumber: String = soundJSON.getString("cdNumber")
-                    val cdName: String = soundJSON.getString("cdName")
-                    val trackNumber: Int = soundJSON.getInt("trackNumber")
-
                     // Create sound target object and add to list
-                    soundTargets.add(SoundTarget(directionVector, location, description, category, cdNumber, cdName, trackNumber))
+                    sounds.add(sound)
                 }
 
                 // Resume suspended function with result
-                continuation.resume(soundTargets)
+                continuation.resume(sounds)
             },
             Response.ErrorListener {
 

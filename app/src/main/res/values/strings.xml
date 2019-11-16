@@ -7,5 +7,5 @@
     <string name="retrieving_sounds">Retrieving sounds</string>
     <string name="api_url">http://ec2-3-8-216-213.eu-west-2.compute.amazonaws.com/api</string>
     <string name="logo_content_description">The main logo</string>
-    <string name="no_sound_targets">No sound targets</string>
+    <string name="no_sounds">No sounds available</string>
 </resources>

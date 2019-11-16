@@ -169,24 +169,31 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val serverMaster = ServerMaster(this@MainActivity)
 
                 val fetchConfiguration = async { serverMaster.fetchConfiguration() }
-                val fetchSoundTargets = async { serverMaster.fetchSoundTargets() }
+                val fetchSounds = async { serverMaster.fetchSounds() }
 
                 val configuration = fetchConfiguration.await()
-                val soundTargets = fetchSoundTargets.await()
+                val sounds = fetchSounds.await()
 
-                if (configuration != null && soundTargets != null) {
+                if (configuration != null && sounds != null) {
 
-                    if (soundTargets.size == 0) {
+                    if (sounds.size == 0) {
 
                         // Update UI
                         withContext(Dispatchers.Main) {
-                            textView.text = resources.getString(R.string.no_sound_targets)
+                            textView.text = resources.getString(R.string.no_sounds)
                         }
 
                     } else {
 
                         // Assign to main instance
                         this@MainActivity.configuration = configuration
+
+                        // Initialise sound file master and attempt to update sound files
+                        val soundFileMaster = SoundFileMaster(this@MainActivity)
+                        async { soundFileMaster.updateSoundFilesToMatch(sounds) }.await()
+
+                        // Create sound targets for 'selected' sounds
+                        val soundTargets: MutableList<SoundTarget> = extractSoundTargetsFromSounds(sounds)
 
                         // Assign to main instance
                         this@MainActivity.soundTargetManager = SoundTargetManager(
@@ -195,14 +202,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                             configuration.maxMediaPlayers,
                             configuration.secondaryAngle
                         )
-
-                        Log.i("Sound files", "Initialising soundfilemaster")
-
-                        // Initialise sound file master and attempt to update sound files
-                        val soundFileMaster = SoundFileMaster(this@MainActivity)
-                        async { soundFileMaster.updateSoundFilesToMatch(soundTargets) }.await()
-
-                        Log.i("Sound files", "All done")
 
                         // Set as ready to start
                         readyToStart = true
@@ -243,6 +242,43 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         textView = findViewById(R.id.textView)
         logoImageView = findViewById(R.id.logoImageView)
         volumeSeekBar = findViewById(R.id.volumeSeekBar)
+    }
+
+    /**
+     * Helper function to extract sound targets from 'selected' sounds
+     */
+    fun extractSoundTargetsFromSounds(sounds: MutableList<Sound>): MutableList<SoundTarget> {
+
+        // Initialise list to store sound targets
+        val soundTargets: MutableList<SoundTarget> = mutableListOf()
+
+        for (sound in sounds) {
+
+            // If selected then initialise sound
+            if (sound.selected) {
+
+                // Create direction vector object
+                val directionVector: FloatArray = floatArrayOf(
+                    sound.directionX!!,
+                    sound.directionY!!,
+                    sound.directionZ!!
+                )
+
+                // Create sound target
+                soundTargets.add(SoundTarget(
+                    directionVector,
+                    sound.location,
+                    sound.description,
+                    sound.category,
+                    sound.cdNumber,
+                    sound.cdName,
+                    sound.trackNumber
+                ))
+            }
+        }
+
+        // Return list
+        return soundTargets
     }
 
     /**
