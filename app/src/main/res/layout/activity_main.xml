@@ -9,7 +9,7 @@
     android:paddingHorizontal="0dp"
     tools:context=".MainActivity">
 
-    <com.example.gizmoapplication.ParticleView
+    <com.example.thesonosynthesiserapplication.ParticleView
         android:id="@+id/particleView"
         android:layout_width="0dp"
         android:layout_height="0dp"

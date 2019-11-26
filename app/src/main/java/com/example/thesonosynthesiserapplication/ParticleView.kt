@@ -1,4 +1,4 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import android.content.Context
 import android.graphics.*
@@ -6,7 +6,6 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Choreographer
 import android.view.SurfaceView
 import androidx.core.content.ContextCompat
@@ -37,19 +36,19 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     private val particlePaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private val numParticles: Int = 50
-    private val particleRadius: Float = 10f
-    private val maxSpeed: Float = 300f
-    private val maxSteeringForce: Float = 300f
+    private val numParticles: Int = 100
+    private val particleRadius: Float = 20f
+    private val maxSpeed: Float = 600f
+    private val maxSteeringForce: Float = 600f
     private val randomForceConstant: Float = 250f
 
-    private val desiredSeparation: Float = 100f
-    private val neighbourDistance: Float = 200f
+    private val desiredSeparation: Float = 200f
+    private val neighbourDistance: Float = 400f
     private val separationWeight: Float = 2f
     private val alignmentWeight: Float = 1f
     private val cohesionWeight: Float = 0.5f
-    private val borderRadiusUpperLimit: Float = 50f
-    private val borderRadiusLowerLimit: Float = 400f
+    private val borderRadiusUpperLimit: Float = 100f
+    private val borderRadiusLowerLimit: Float = 800f
     private val borderForceWeight: Float = 5f
 
     private val particleArray: Array<Particle?> = arrayOfNulls(numParticles)

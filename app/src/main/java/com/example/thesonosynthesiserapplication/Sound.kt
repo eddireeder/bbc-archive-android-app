@@ -1,4 +1,4 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 class Sound (
     val id: Int,

@@ -1,8 +1,6 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import android.content.Context
-import android.provider.MediaStore
-import android.text.SpannableString
 import android.util.Log
 import java.io.File
 import kotlin.math.pow

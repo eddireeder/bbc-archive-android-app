@@ -1,8 +1,6 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import android.Manifest
-import android.animation.ObjectAnimator
-import android.animation.PropertyValuesHolder
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor

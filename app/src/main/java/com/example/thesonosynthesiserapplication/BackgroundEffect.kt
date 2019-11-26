@@ -1,9 +1,7 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import android.content.Context
 import android.media.MediaPlayer
-import android.media.SoundPool
-import android.util.Log
 
 class BackgroundEffect (private val context: Context) {
 

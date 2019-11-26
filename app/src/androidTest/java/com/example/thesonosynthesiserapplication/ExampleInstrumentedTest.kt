@@ -1,4 +1,4 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4

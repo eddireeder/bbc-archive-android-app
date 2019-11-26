@@ -1,4 +1,4 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import android.media.MediaPlayer
 

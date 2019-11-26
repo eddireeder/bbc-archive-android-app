@@ -1,15 +1,11 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
 import android.content.Context
-import android.util.Log
-import android.widget.TextView
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.result.Result
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 

@@ -1,6 +1,5 @@
-package com.example.gizmoapplication
+package com.example.thesonosynthesiserapplication
 
-import android.media.MediaPlayer
 import kotlin.math.PI
 import kotlin.math.acos
 import kotlin.math.pow
