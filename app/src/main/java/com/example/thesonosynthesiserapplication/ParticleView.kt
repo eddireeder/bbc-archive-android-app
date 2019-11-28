@@ -128,7 +128,7 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
         // Calculate where the centre position should be (between the description and top of phone)
         centrePosition = floatArrayOf(width/2f, (height/2f) - 200f)
 
-        // Initialise particles at random positions around the outside with random velocity and force
+        // Initialise particles at random positions at the top with random velocity and force
         for (i in particleArray.indices) {
 
             // Generate random velocity
@@ -146,18 +146,11 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
             )
 
             // Generate random initial position
-            val heightAndSide: Float = Random.nextFloat()*(2*height)
-            val initialPosition: FloatArray = if (heightAndSide < height) {
-                floatArrayOf(
-                    -distanceOutside,
-                    heightAndSide
-                )
-            } else {
-                floatArrayOf(
-                    width + distanceOutside,
-                    heightAndSide - height
-                )
-            }
+            val x: Float = Random.nextFloat()*width
+            val initialPosition: FloatArray = floatArrayOf(
+                x,
+                -distanceOutside
+            )
 
             // Initialise particle
             particleArray[i] = Particle(initialPosition, randomVelocityWithMaxSpeed, randomForce)
