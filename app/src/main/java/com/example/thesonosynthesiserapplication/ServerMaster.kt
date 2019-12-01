@@ -38,9 +38,12 @@ class ServerMaster(val context: Context) {
                         configurationJSON.getDouble("primaryAngle").toFloat(),
                         configurationJSON.getDouble("secondaryAngle").toFloat(),
                         configurationJSON.getDouble("timeToFocus").toFloat(),
+                        configurationJSON.getDouble("minAngleBetweenSounds").toFloat(),
                         configurationJSON.getInt("maxMediaPlayers"),
                         configurationJSON.getDouble("maxIdleSensorDifference").toFloat(),
-                        configurationJSON.getDouble("maxIdleSeconds").toFloat()
+                        configurationJSON.getDouble("maxIdleSeconds").toFloat(),
+                        configurationJSON.getBoolean("selectRandomly"),
+                        configurationJSON.getInt("numRandomlySelected")
                     )
 
                     // Return configuration

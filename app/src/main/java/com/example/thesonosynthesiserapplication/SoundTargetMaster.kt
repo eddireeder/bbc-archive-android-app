@@ -5,7 +5,7 @@ import android.util.Log
 import java.io.File
 import kotlin.math.pow
 
-class SoundTargetManager(
+class SoundTargetMaster(
     context: Context,
     soundTargets: MutableList<SoundTarget>,
     private val maxMediaPlayers: Int,

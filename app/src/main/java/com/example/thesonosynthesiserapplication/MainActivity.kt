@@ -28,12 +28,13 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import java.lang.Runnable
-import kotlin.math.absoluteValue
+import kotlin.math.*
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
     lateinit var configuration: Configuration
-    lateinit var soundTargetManager: SoundTargetManager
+    lateinit var soundTargetMaster: SoundTargetMaster
 
     private var readyToStart: Boolean = false
     val debugMode: Boolean = false
@@ -190,11 +191,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                         val soundFileMaster = SoundFileMaster(this@MainActivity)
                         async { soundFileMaster.updateSoundFilesToMatch(sounds) }.await()
 
-                        // Create sound targets for 'selected' sounds
-                        val soundTargets: MutableList<SoundTarget> = extractSoundTargetsFromSounds(sounds)
+                        val soundTargets: MutableList<SoundTarget> = if (configuration.selectRandomly) {
+
+                            // Select n random sounds and generate directions for each
+                            generateRandomSoundTargetsFromSounds(sounds, configuration.minAngleBetweenSounds, configuration.numRandomlySelected)
+
+                        } else {
+
+                            // Create sound targets for 'selected' sounds
+                            extractSelectedSoundTargetsFromSounds(sounds)
+                        }
 
                         // Assign to main instance
-                        this@MainActivity.soundTargetManager = SoundTargetManager(
+                        this@MainActivity.soundTargetMaster = SoundTargetMaster(
                             this@MainActivity,
                             soundTargets,
                             configuration.maxMediaPlayers,
@@ -245,7 +254,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     /**
      * Helper function to extract sound targets from 'selected' sounds
      */
-    fun extractSoundTargetsFromSounds(sounds: MutableList<Sound>): MutableList<SoundTarget> {
+    fun extractSelectedSoundTargetsFromSounds(sounds: MutableList<Sound>): MutableList<SoundTarget> {
 
         // Initialise list to store sound targets
         val soundTargets: MutableList<SoundTarget> = mutableListOf()
@@ -277,6 +286,80 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Return list
         return soundTargets
+    }
+
+    /**
+     * Helper function to generate random sound targets from sounds
+     */
+    fun generateRandomSoundTargetsFromSounds(sounds: MutableList<Sound>, minAngleBetweenSounds: Float, numRandomlySelected: Int): MutableList<SoundTarget> {
+
+        // Initialise list to store sound targets
+        val soundTargets: MutableList<SoundTarget> = mutableListOf()
+
+        // Repeat as many times as we want sounds
+        for (i in 1..numRandomlySelected) {
+
+            // Stop if no more sounds
+            if (sounds.size == 0) break
+
+            // Select a random sound
+            sounds.shuffle()
+            val sound: Sound = sounds.removeAt(0)
+
+            // Repeat until sound has a valid direction
+            while (true) {
+
+                var directionValid = true
+
+                // Generate a random normalised direction
+                val direction: FloatArray = generateRandomDirection()
+
+                // Create sound target from direction and sound
+                val currentSoundTarget = SoundTarget(
+                    direction,
+                    sound.location,
+                    sound.category,
+                    sound.description,
+                    sound.cdNumber,
+                    sound.cdName,
+                    sound.trackNumber
+                )
+
+                // Check if too close to other sound targets
+                for (soundTarget in soundTargets) {
+                    if (
+                        soundTarget != currentSoundTarget &&
+                        currentSoundTarget.getDegreesFrom(soundTarget.directionVector) < minAngleBetweenSounds
+                    ) {
+                        directionValid = false
+                        break
+                    }
+                }
+
+                if (directionValid) {
+                    soundTargets.add(currentSoundTarget)
+                    break
+                }
+            }
+        }
+
+        // Return list
+        return soundTargets
+    }
+
+    /**
+     * Helper method to generate a random 3D unit vector
+     */
+    fun generateRandomDirection(): FloatArray {
+
+        val theta: Double = Random.nextDouble(2.0*Math.PI)
+        val z: Double = Random.nextDouble(2.0) - 1.0
+
+        return floatArrayOf(
+            (sqrt(1.0 - z.pow(2))*cos(theta)).toFloat(),
+            (sqrt(1.0 - z.pow(2))*sin(theta)).toFloat(),
+            z.toFloat()
+        )
     }
 
     /**
@@ -313,7 +396,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         // Calculate the phone's aim vector
         val aimDirectionVector: FloatArray = calculateAimVector(event.values)
 
-        soundTargetManager.apply {
+        soundTargetMaster.apply {
 
             // Update all sound targets with new degrees from aim
             updateSoundTargetsDegreesFromAim(aimDirectionVector)
@@ -329,26 +412,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
 
         // If debug mode then show the latest angles to sounds
-        if (debugMode) anglesToSounds.text = soundTargetManager.generateAnglesToSoundsString()
+        if (debugMode) anglesToSounds.text = soundTargetMaster.generateAnglesToSoundsString()
 
         // Ensure focussing on target if needed, else ensure not focussing
-        for (i in soundTargetManager.orderedSoundTargets.indices) {
+        for (i in soundTargetMaster.orderedSoundTargets.indices) {
 
             // If the closest target
             if (i == 0) {
 
                 // If within the primary angle
-                if (soundTargetManager.orderedSoundTargets[i].degreesFromAim <= configuration.primaryAngle) {
+                if (soundTargetMaster.orderedSoundTargets[i].degreesFromAim <= configuration.primaryAngle) {
 
                     // Ensure focussing on target
-                    if (focusTarget == null) startFocussing(soundTargetManager.orderedSoundTargets[i])
+                    if (focusTarget == null) startFocussing(soundTargetMaster.orderedSoundTargets[i])
                 }
             }
 
             // Check whether need to stop focussing
             if (
-                soundTargetManager.orderedSoundTargets[i].degreesFromAim > configuration.primaryAngle &&
-                focusTarget == soundTargetManager.orderedSoundTargets[i]
+                soundTargetMaster.orderedSoundTargets[i].degreesFromAim > configuration.primaryAngle &&
+                focusTarget == soundTargetMaster.orderedSoundTargets[i]
             ) {
                 stopFocussing()
             }
@@ -479,7 +562,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         backgroundEffect.startIdleBackground()
 
         // Set the volume of each media player in pool to 0
-        soundTargetManager.setVolumeForAllSoundTargets(0f)
+        soundTargetMaster.setVolumeForAllSoundTargets(0f)
     }
 
     /**
@@ -539,10 +622,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (isFocussed) return 0f
 
         // If there are no sound targets return full volume
-        if (soundTargetManager.orderedSoundTargets.size == 0) return 1f
+        if (soundTargetMaster.orderedSoundTargets.size == 0) return 1f
 
         // Retrieve the minimum angle from the closest sound
-        val minAngleFromSound: Float = soundTargetManager.orderedSoundTargets[0].degreesFromAim
+        val minAngleFromSound: Float = soundTargetMaster.orderedSoundTargets[0].degreesFromAim
 
         // Volume relative to distance to sound centre
         if (minAngleFromSound < configuration.secondaryAngle) return 0.2f + 0.8f*(minAngleFromSound/configuration.secondaryAngle)

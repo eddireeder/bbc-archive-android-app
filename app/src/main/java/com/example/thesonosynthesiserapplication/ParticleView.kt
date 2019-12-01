@@ -278,10 +278,10 @@ class ParticleView : SurfaceView, Choreographer.FrameCallback {
     fun playingUpdate(deltaTime: Float) {
 
         // Calculate the border radius
-        val borderRadius: Float = if (mainActivity.soundTargetManager.orderedSoundTargets.size > 0) {
+        val borderRadius: Float = if (mainActivity.soundTargetMaster.orderedSoundTargets.size > 0) {
 
             // Create a variable to reference closest sound for readibility
-            val closestSoundTarget: SoundTarget = mainActivity.soundTargetManager.orderedSoundTargets[0]
+            val closestSoundTarget: SoundTarget = mainActivity.soundTargetMaster.orderedSoundTargets[0]
 
             if (closestSoundTarget.degreesFromAim < mainActivity.configuration.primaryAngle) {
                 borderRadiusUpperLimit
