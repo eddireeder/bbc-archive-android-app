@@ -13,7 +13,7 @@ class SoundTargetMaster(
 ) {
 
     private val context = context as MainActivity
-    val orderedSoundTargets: MutableList<SoundTarget> = soundTargets
+    var orderedSoundTargets: MutableList<SoundTarget> = soundTargets
     private val mediaPlayerPool = MediaPlayerPool(maxMediaPlayers)
 
     /**
@@ -152,5 +152,25 @@ class SoundTargetMaster(
                 it.mediaPlayer.setVolume(volume, volume)
             }
         }
+    }
+
+    /**
+     * Update with new sound targets and recycle all old players
+     */
+    fun updateSoundTargets(soundTargets: MutableList<SoundTarget>) {
+
+        // Recycle all players currently being used
+        for (soundTarget in orderedSoundTargets) {
+            soundTarget.mediaPlayerWithState?.let {
+
+                if (it.prepared) {
+                    mediaPlayerPool.recyclePlayer(it)
+                    soundTarget.mediaPlayerWithState = null
+                }
+            }
+        }
+
+        // Update list
+        orderedSoundTargets = soundTargets
     }
 }

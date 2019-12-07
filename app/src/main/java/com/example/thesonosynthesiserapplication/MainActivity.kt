@@ -34,6 +34,7 @@ import kotlin.random.Random
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
     lateinit var configuration: Configuration
+    lateinit var sounds: MutableList<Sound>
     lateinit var soundTargetMaster: SoundTargetMaster
 
     private var readyToStart: Boolean = false
@@ -184,8 +185,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                     } else {
 
-                        // Assign to main instance
+                        // Assign to configuration and sounds to main instance
                         this@MainActivity.configuration = configuration
+                        this@MainActivity.sounds = sounds
 
                         // Initialise sound file master and attempt to update sound files
                         val soundFileMaster = SoundFileMaster(this@MainActivity)
@@ -202,7 +204,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                             extractSelectedSoundTargetsFromSounds(sounds)
                         }
 
-                        // Assign to main instance
+                        // Assign sound target master to main instance
                         this@MainActivity.soundTargetMaster = SoundTargetMaster(
                             this@MainActivity,
                             soundTargets,
@@ -510,6 +512,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // Pause experience
         pause()
+
+        // If randomly selecting sounds, regenerate sound targets
+        if (configuration.selectRandomly) {
+            val newSoundTargets: MutableList<SoundTarget> = generateRandomSoundTargetsFromSounds(
+                sounds,
+                configuration.minAngleBetweenSounds,
+                configuration.numRandomlySelected
+            )
+            soundTargetMaster.updateSoundTargets(newSoundTargets)
+        }
     }
 
     /**
