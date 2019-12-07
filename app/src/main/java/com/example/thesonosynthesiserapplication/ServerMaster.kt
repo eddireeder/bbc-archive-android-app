@@ -90,9 +90,6 @@ class ServerMaster(val context: Context) {
 
                     val sound: Sound = Sound(
                         soundJSON.getInt("id"),
-                        if (soundJSON.isNull("directionX")) null else soundJSON.getDouble("directionX").toFloat(),
-                        if (soundJSON.isNull("directionY")) null else soundJSON.getDouble("directionY").toFloat(),
-                        if (soundJSON.isNull("directionZ")) null else soundJSON.getDouble("directionZ").toFloat(),
                         soundJSON.getString("location"),
                         soundJSON.getString("description"),
                         soundJSON.getString("category"),

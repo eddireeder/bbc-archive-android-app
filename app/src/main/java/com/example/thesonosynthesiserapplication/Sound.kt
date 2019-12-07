@@ -2,9 +2,6 @@ package com.example.thesonosynthesiserapplication
 
 class Sound (
     val id: Int,
-    val directionX: Float?,
-    val directionY: Float?,
-    val directionZ: Float?,
     val location: String,
     val description: String,
     val category: String,

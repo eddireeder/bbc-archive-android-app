@@ -195,13 +195,21 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                         val soundTargets: MutableList<SoundTarget> = if (configuration.selectRandomly) {
 
-                            // Select n random sounds and generate directions for each
-                            generateRandomSoundTargetsFromSounds(sounds, configuration.minAngleBetweenSounds, configuration.numRandomlySelected)
+                            // Select n random sounds
+                            val randomSounds: MutableList<Sound> = mutableListOf()
+                            for (i in 1..configuration.numRandomlySelected) randomSounds.add(sounds.random())
+
+                            // Generate sound targets from sounds
+                            generateSoundTargetsFromSounds(randomSounds, configuration.minAngleBetweenSounds)
 
                         } else {
 
-                            // Create sound targets for 'selected' sounds
-                            extractSelectedSoundTargetsFromSounds(sounds)
+                            // Select only selected sounds
+                            val selectedSounds: MutableList<Sound> = mutableListOf()
+                            for (sound in selectedSounds) if (sound.selected) selectedSounds.add(sound)
+
+                            // Generate sound targets from sounds
+                            generateSoundTargetsFromSounds(sounds, configuration.minAngleBetweenSounds)
                         }
 
                         // Assign sound target master to main instance
@@ -254,59 +262,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     /**
-     * Helper function to extract sound targets from 'selected' sounds
+     * Method to generate sound targets with directions from a list of sounds
      */
-    fun extractSelectedSoundTargetsFromSounds(sounds: MutableList<Sound>): MutableList<SoundTarget> {
-
-        // Initialise list to store sound targets
-        val soundTargets: MutableList<SoundTarget> = mutableListOf()
-
-        for (sound in sounds) {
-
-            // If selected then initialise sound
-            if (sound.selected) {
-
-                // Create direction vector object
-                val directionVector: FloatArray = floatArrayOf(
-                    sound.directionX!!,
-                    sound.directionY!!,
-                    sound.directionZ!!
-                )
-
-                // Create sound target
-                soundTargets.add(SoundTarget(
-                    directionVector,
-                    sound.location,
-                    sound.description,
-                    sound.category,
-                    sound.cdNumber,
-                    sound.cdName,
-                    sound.trackNumber
-                ))
-            }
-        }
-
-        // Return list
-        return soundTargets
-    }
-
-    /**
-     * Helper function to generate random sound targets from sounds
-     */
-    fun generateRandomSoundTargetsFromSounds(sounds: MutableList<Sound>, minAngleBetweenSounds: Float, numRandomlySelected: Int): MutableList<SoundTarget> {
+    fun generateSoundTargetsFromSounds(sounds: MutableList<Sound>, minAngleBetweenSounds: Float): MutableList<SoundTarget> {
 
         // Initialise list to store sound targets
         val soundTargets: MutableList<SoundTarget> = mutableListOf()
 
         // Repeat as many times as we want sounds
-        for (i in 1..numRandomlySelected) {
-
-            // Stop if no more sounds
-            if (sounds.size == 0) break
-
-            // Select a random sound
-            sounds.shuffle()
-            val sound: Sound = sounds.removeAt(0)
+        for (sound in sounds) {
 
             // Repeat until sound has a valid direction
             while (true) {
@@ -515,11 +479,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         // If randomly selecting sounds, regenerate sound targets
         if (configuration.selectRandomly) {
-            val newSoundTargets: MutableList<SoundTarget> = generateRandomSoundTargetsFromSounds(
-                sounds,
-                configuration.minAngleBetweenSounds,
-                configuration.numRandomlySelected
-            )
+
+            // Select n random sounds
+            val randomSounds: MutableList<Sound> = mutableListOf()
+            for (i in 1..configuration.numRandomlySelected) randomSounds.add(sounds.random())
+
+            // Generate sound targets from sounds
+            val newSoundTargets: MutableList<SoundTarget> = generateSoundTargetsFromSounds(randomSounds, configuration.minAngleBetweenSounds)
+
             soundTargetMaster.updateSoundTargets(newSoundTargets)
         }
     }

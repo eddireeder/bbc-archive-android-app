@@ -83,16 +83,6 @@ class SoundTargetMaster(
                     orderedSoundTargets[i].mediaPlayerWithState = mediaPlayerWithState
 
                     // Start playing sound resource
-                    /*
-                    context.resources.openRawResourceFd(orderedSoundTargets[i].resID)
-                        ?.let { assetFileDescriptor ->
-                            mediaPlayerWithState.mediaPlayer.run {
-                                setDataSource(assetFileDescriptor)
-                                prepareAsync()
-                            }
-                        }
-
-                     */
                     val file: File = File(context.getExternalFilesDir(null), "sound_${orderedSoundTargets[i].location}")
                     mediaPlayerWithState.mediaPlayer.run {
                         setDataSource(file.toString())
