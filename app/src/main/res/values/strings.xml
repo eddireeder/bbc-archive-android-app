@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Gizmo Application</string>
+    <string name="app_name">The Sonosynthesiser</string>
     <string name="focussing">Focussing</string>
     <string name="focussed">Focussed</string>
     <string name="connection_error">Could not connect</string>

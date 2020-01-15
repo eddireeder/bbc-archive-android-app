@@ -93,11 +93,11 @@
         android:layout_marginBottom="32dp"
         android:max="100"
         android:progress="50"
-        android:progressBackgroundTint="#686369"
+        android:progressBackgroundTint="@color/seek_bar_background"
         android:progressDrawable="@drawable/seek_bar"
         android:progressTint="#00FFFFFF"
         android:thumb="@drawable/seek_thumb"
-        android:thumbTint="#99A2B1"
+        android:thumbTint="@color/seek_bar_thumb"
         app:layout_constraintBottom_toBottomOf="@+id/particleView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
@@ -105,7 +105,7 @@
     <ImageView
         android:id="@+id/logoImageView"
         android:layout_width="0dp"
-        android:layout_height="50dp"
+        android:layout_height="300dp"
         android:layout_marginStart="32dp"
         android:layout_marginEnd="32dp"
         android:contentDescription="@string/logo_content_description"
@@ -114,6 +114,6 @@
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_sonosynthesiser_logo" />
+        app:srcCompat="@drawable/sonosynthesiser_logo" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

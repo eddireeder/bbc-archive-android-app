@@ -266,51 +266,70 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
      */
     fun generateSoundTargetsFromSounds(sounds: MutableList<Sound>, minAngleBetweenSounds: Float): MutableList<SoundTarget> {
 
-        // Initialise list to store sound targets
-        val soundTargets: MutableList<SoundTarget> = mutableListOf()
+        // Attempt to create sound target sphere up to 1000 times
+        for (i in 1..1000) {
 
-        // Repeat as many times as we want sounds
-        for (sound in sounds) {
+            // Initialise list to store sound targets
+            val soundTargets: MutableList<SoundTarget> = mutableListOf()
 
-            // Repeat until sound has a valid direction
-            while (true) {
+            var allSoundsInserted = true
 
-                var directionValid = true
+            // For each sound
+            for (sound in sounds) {
 
-                // Generate a random normalised direction
-                val direction: FloatArray = generateRandomDirection()
+                var soundInserted = false
 
-                // Create sound target from direction and sound
-                val currentSoundTarget = SoundTarget(
-                    direction,
-                    sound.location,
-                    sound.category,
-                    sound.description,
-                    sound.cdNumber,
-                    sound.cdName,
-                    sound.trackNumber
-                )
+                // Attempt to fit a sound in the sphere up to 50000 times
+                for (j in 1..50000) {
 
-                // Check if too close to other sound targets
-                for (soundTarget in soundTargets) {
-                    if (
-                        soundTarget != currentSoundTarget &&
-                        currentSoundTarget.getDegreesFrom(soundTarget.directionVector) < minAngleBetweenSounds
-                    ) {
-                        directionValid = false
+                    var directionValid = true
+
+                    // Generate a random normalised direction
+                    val direction: FloatArray = generateRandomDirection()
+
+                    // Create sound target from direction and sound
+                    val currentSoundTarget = SoundTarget(
+                        direction,
+                        sound.location,
+                        sound.category,
+                        sound.description,
+                        sound.cdNumber,
+                        sound.cdName,
+                        sound.trackNumber
+                    )
+
+                    // Check if too close to other sound targets
+                    for (soundTarget in soundTargets) {
+                        if (
+                            soundTarget != currentSoundTarget &&
+                            currentSoundTarget.getDegreesFrom(soundTarget.directionVector) < minAngleBetweenSounds
+                        ) {
+                            directionValid = false
+                            break
+                        }
+                    }
+
+                    if (directionValid) {
+                        soundTargets.add(currentSoundTarget)
+                        soundInserted = true
                         break
                     }
                 }
 
-                if (directionValid) {
-                    soundTargets.add(currentSoundTarget)
+                if (!soundInserted) {
+                    allSoundsInserted = false
                     break
                 }
             }
+
+            if (allSoundsInserted) {
+                // Return list
+                return soundTargets
+            }
         }
 
-        // Return list
-        return soundTargets
+        // Handle not being able to fit all sounds
+        return mutableListOf()
     }
 
     /**
@@ -607,7 +626,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val minAngleFromSound: Float = soundTargetMaster.orderedSoundTargets[0].degreesFromAim
 
         // Volume relative to distance to sound centre
-        if (minAngleFromSound < configuration.secondaryAngle) return 0.2f + 0.8f*(minAngleFromSound/configuration.secondaryAngle)
+        if (minAngleFromSound < configuration.secondaryAngle) return (minAngleFromSound/configuration.secondaryAngle).pow(3)
 
         // Volume should be full as we're not near any sounds
         return 1f
